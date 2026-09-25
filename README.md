@@ -25,6 +25,44 @@ A film projector's gate, shutter and print, as an FFGL effect for
 <sub>One frame, rendered by `gatest --pipe`, the offline harness — not captured from
 Resolume. Resolume's bundled demo clip Beat 001 at the defaults, with Hair up.</sub>
 
+<!-- downloads:start -->
+
+## Download
+
+**[v0.1.0](https://github.com/stoatworks-labs/gate/releases/tag/v0.1.0)** — prebuilt for macOS and Windows. Pick your platform:
+
+<details>
+<summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`gate-0.1.0-macos-universal.dmg`](https://github.com/stoatworks-labs/gate/releases/download/v0.1.0/gate-0.1.0-macos-universal.dmg) | 225 KB |
+| Universal (Apple Silicon + Intel) · .zip archive | [`gate-macos-universal.zip`](https://github.com/stoatworks-labs/gate/releases/latest/download/gate-macos-universal.zip) | 189 KB |
+
+</details>
+
+<details>
+<summary><b>Windows</b> — x64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .exe installer | [`gate-0.1.0-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/gate/releases/download/v0.1.0/gate-0.1.0-windows-x86_64-setup.exe) | 224 KB |
+| x64 · .zip archive | [`gate-windows-x86_64.zip`](https://github.com/stoatworks-labs/gate/releases/latest/download/gate-windows-x86_64.zip) | 118 KB |
+
+</details>
+
+All builds, checksums and release notes: [github.com/stoatworks-labs/gate/releases](https://github.com/stoatworks-labs/gate/releases).
+
+macOS builds are signed and notarised and open normally. The Windows builds are unsigned, so SmartScreen warns once.
+
+<!-- downloads:end -->
+
+## Video
+
+[![Gate: a film projector's gate, shutter and print, for Resolume](docs/video-thumb.png)](https://www.youtube.com/watch?v=y9B5l5ynnUY)
+
+60 fps, because the hold and the flicker are beats against the display rate. It never shows the classic 2-blade, 180° shutter (see the photosensitivity note below).
+
 ## The one idea
 
 Model the machine, not the look. A projector pulls the film down a frame at a time with a
