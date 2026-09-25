@@ -246,6 +246,68 @@ renders that carry the same mutation, or reads one-frame exposures. Reverted wit
 
 ---
 
+## The browser demo
+
+`demo/` is the page at **gate-demo.stoatworks-labs.com** (2026-09-25), on the fleet's
+kit (`stoatworks-backend/resolume-demo`, vendored by its `sync.sh`).
+
+**What is the plugin's.** Every GLSL string of `Shaders.cpp` — the version line, the
+vertex body and the capture, resample and output bodies — is spliced into
+`demo/plugin.js` by `demo/tools/sync_shaders.py`, tabs and comments included, and
+assembled as `assemble` does. So the hold, the gate's bilinear, the frame line and the
+neighbour frames, the density, retention and splice wash, the scratches, dust, cue dots
+and hair, the shutter's weighted sum, the lamp, cos⁴ and the encode run on the GPU as
+they do here, over two RGBA16F held pictures (WebGL2 needs `EXT_color_buffer_float` to
+render into them, and the page refuses to start without it). The same script copies
+Shaders.h's print-data layout, every Model.h constant (a `float` through `Math.fround`,
+an expression such as `kMargin` evaluated in double) and the Controls option lists, rates
+and lamp temperatures. `demo/tools/check_shaders.py` holds all of it to the C++ character
+for character and `tools/verify.sh` runs it; a shader change here means re-running the
+sync script, never an edit of the page. The one-character mutation above (`light +=` →
+`light =`) fails it.
+
+**What is a hand port, checked by nobody but a reader:** Model.cpp whole — `Hash` and
+`Key` (uint32 through `Math.imul` and `>>> 0`, an int64 index split into its two's-
+complement halves), `Normal`, `ShutterOpen`, `CumulativeOpen`, `Segments`, `Weave`,
+`WeaveOffset`, `Scratches`, `Dust`, `HairAt`, `IsSplice`, `SpliceJump`, `IsCue`,
+`Retention` and `LampRgb` — Controls.cpp's laws, the `Stream` enum, the seed and every
+default from `Gate::Gate()`, and from `ProcessOpenGL` the clock (dt clamped to [0, 0.25 s],
+the nominal first frame, the exposure reused on a frame the clock did not move), the film
+position, the hold's bookkeeping, the resize resample, the print-data upload and every
+uniform. Change one of those here and change the page by hand. The page says so in its
+banner and disclosure.
+
+**What differs, each said on the page:** the host's frame is the browser's
+requestAnimationFrame, so **the flicker beats against the viewer's display rate** (12 Hz
+at 60, 48 Hz at 120, none at 72 or 144) and the line under the picture reports the rate
+and the beat; the clock is the kit's (no unit vote; a paused page renders dt = 0 frames;
+Restart is a backward clock, which the clamp reads as 0 s, so the strip carries on); Cue
+Dots is a toggle the renderer releases on the frame it acts (the kit has no event type);
+no About block; `Perturb` and `Probe` are 0; the kit caps one frame at 0.1 s. A
+photosensitivity note sits above the picture. Clips are the kit's generated ones (moving
+scene first), never Resolume's.
+
+**Measured once (2026-09-25).** The page driven frame by frame at n / 60 from a fresh
+instance (`window.__gateDemo.hooks`: `fresh()`, and `afterRender` to read the canvas and
+the input inside the frame) on the Synthetic scene clip at 320x180, 120 frames, against
+`gatest --pipe --fps 60` on the same input frames read back from the page, with the same
+values `--set`: at the defaults; at 2 blades and 180°, 25 fps, Tungsten, Framing +0.12,
+Weave 0.8, Shrinkage 0.9, every mark at 1, Age 0.5, Vignette 1 (a hair on projector
+frames 40–49); at 16 fps, 1 blade at 99°, Carbon Arc, Framing −0.2, Age 1, Mix 0.7; and
+the second of those with Cue Dots pressed at frame 10 (`--script`). Every pixel within 1/255 on all 120 frames of each.
+Through ANGLE on Metal, 0 to 2 channel values of 27.6 million differ, by 1; through
+SwiftShader, up to 415 000, by 1. It can fail: Weave 0.25 against 0.26 differs by up to
+10/255 from the first frame on; Dust 1 against 0.99 by 41/255; the cue on the page only by
+174/255 on frames 10–18. Age 0.1 → 0.9 and Lamp Xenon → Tungsten each move the paused
+picture (mean |difference| 67 and 28 levels).
+
+Deploy: `cf-run npx wrangler deploy` from the repo root, or push to main
+(`.github/workflows/deploy.yml`). The host is a Worker **route** over a proxied
+`AAAA 100::` record made through the API on 2026-09-25, not a custom domain: the zone
+is at Cloudflare's limit of 100. Delete that record and the page goes dark while deploys
+stay green. Verify by content:
+`curl -s 'https://gate-demo.stoatworks-labs.com/?cb=1' | grep -o '<title>[^<]*'`.
+
 ## Decisions taken without asking
 
 - **The exposure is the whole display period** (a 360° camera, or an eye). The spec's
@@ -363,7 +425,7 @@ at 320x180 and 1280x720 and on the software renderer.
   footage, never on film scans.
 - **The clock-unit voting** is readout's, which has met Arena; this plugin has not.
 - **Not verified at 4K**, only benchmarked there.
-- **No user guide, browser demo, OpenFX port, factory presets or seed control.**
+- **No user guide, OpenFX port, factory presets or seed control.**
 
 ---
 

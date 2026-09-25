@@ -139,7 +139,23 @@ one frame of a resize); the print is on the CPU and costs a 4 KB texture row.
 
 - **Never loaded into Resolume**, and never built on Windows.
 - Seen only on Resolume's bundled demo clips, never on camera footage or film scans.
-- No user guide, no browser demo, no OpenFX port, no factory presets.
+- No user guide, no OpenFX port, no factory presets.
+
+## Browser demo
+
+[gate-demo.stoatworks-labs.com](https://gate-demo.stoatworks-labs.com/) runs the
+plugin's own capture, resample and output shaders in WebGL2, spliced in from
+`source/Shaders.cpp` by `demo/tools/sync_shaders.py` and checked character for
+character, with Model.h's constants, by `demo/tools/check_shaders.py` from
+`tools/verify.sh`. So the hold, the gate, the print and the shutter's sum run on the GPU
+over the same two RGBA16F held pictures. Its CPU half — the shutter's light per
+projector frame, the weave, every scratch, speck, hair, splice and cue dot, the dyes and
+the lamps, and every control's law — is a hand port to JavaScript that only a reader
+checks, and the page says so. Driven frame by frame against `gatest --pipe --fps 60` on
+the same input it agrees to 1/255 on every pixel. The flicker beats against the
+browser's own frame rate, so what it shows depends on your display; the page carries a
+photosensitivity note. Generated clips only, or your own image or video, which never
+leaves the page.
 
 ## Build
 

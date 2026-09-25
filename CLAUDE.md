@@ -96,8 +96,27 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - **Never loaded into Resolume.** Everything numeric is measured offline on macOS against
   the real plugin class in a headless CGL context, plus an `oxbow` load.
 - Never built on Windows (CI is written, has not run).
-- No user guide, no browser demo, no OpenFX port, no factory presets.
+- No user guide, no OpenFX port, no factory presets.
 - `StoatworksAbout.h` and `ATTRIBUTIONS.md` are provisional hand copies (`guide = ""`).
+
+## Browser demo
+
+`demo/` is the page at **gate-demo.stoatworks-labs.com**, deployed from
+`wrangler.toml` (a Worker route over a proxied `AAAA 100::` DNS record, not a
+custom domain) with `cf-run npx wrangler deploy` or by any push to main — no build
+step; what is committed is what is served. `demo/vendor/` is copied in by
+`~/Projects/infrastructure/stoatworks-backend/resolume-demo/sync.sh gate` and is not
+a place to edit.
+- **A shader or constant change in the plugin: `python3 demo/tools/sync_shaders.py`**
+  (splices Shaders.cpp's strings, Shaders.h's layout, Model.h's constants and the
+  Controls lists into `demo/plugin.js`), then `python3 demo/tools/check_shaders.py`
+  (in verify.sh). Never hand-edit the generated block.
+- The page's CPU half (Model.cpp's shutter, weave, print and lamps, Controls.cpp's
+  laws, the clock, hold and print upload of `ProcessOpenGL`) is a **hand port**;
+  change it by hand with the C++. Only a reader checks it. The defaults are
+  hand-copied from `Gate::Gate()` too.
+- Verify a deploy **by content**:
+  `curl -s 'https://gate-demo.stoatworks-labs.com/?cb=1' | grep -o '<title>[^<]*'`.
 
 ## Diagnostics
 
