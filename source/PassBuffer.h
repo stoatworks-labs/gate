@@ -11,9 +11,10 @@ namespace gate
 
     **It reallocates only when it has to.** Ensure() is called every frame and
     is a no-op in the overwhelming majority of them; it reallocates when the
-    host's raster changes -- and a reallocation CLEARS. The buckets hold the
-    exposure so far, so on a resize they are not reallocated in place but
-    resampled into a fresh buffer and swapped (see `--resize`).
+    host's raster changes -- and a reallocation CLEARS. The held pictures are
+    still being shown through the shutter, so on a resize they are not
+    reallocated in place but resampled into a fresh buffer and swapped (see
+    `gatest --resize`).
 
     **It actually frees its colour texture.** `ffglex::FFGLFBO::Release()`
     deletes the framebuffer and the depth renderbuffer, then tests
@@ -22,11 +23,10 @@ namespace gate
     `FFGLFBO.cpp`). `Destroy()` deletes it first.
 
     **It owns its filtering**, because this plugin's buffers want different
-    answers: the buckets are read texel for texel with `texelFetch` every
-    frame, but on a resize each one is read BETWEEN texels by the resample
-    pass, so they are bilinear; the exposure sum and the coating are data
-    and must never be filtered. The Mipmapped mode is tinsel's and is unused
-    here.
+    answers: the held pictures are read with `texelFetch` (and a bilinear
+    written out in the shader) every frame, but on a resize each one is read
+    BETWEEN texels by the resample pass, so they are Linear. The Mipmapped
+    mode is tinsel's and is unused here.
 
     Copied from tinsel, where it was written for a glow chain; the mechanism is
     unchanged.
@@ -80,9 +80,9 @@ public:
 	/// Release everything, including the colour texture the SDK forgets.
 	void Destroy();
 
-	/// Exchange the GL objects behind two buffers. This is how a bucket
+	/// Exchange the GL objects behind two buffers. This is how a held picture
 	/// changes raster without losing its contents: a scratch buffer is
-	/// allocated at the new size, the old bucket is resampled into it, and
+	/// allocated at the new size, the old picture is resampled into it, and
 	/// the two swap. Neither allocates or frees anything here.
 	void Swap( PassBuffer& other );
 

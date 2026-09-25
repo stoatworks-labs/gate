@@ -76,7 +76,7 @@ Gate::Gate()
 	params[ PT_DUST ]      = 0.3f;
 	params[ PT_SPLICES ]   = 0.05f;
 	params[ PT_CUE_DOTS ]  = 0.0f;
-	params[ PT_AGE ]       = 0.2f;
+	params[ PT_AGE ]       = 0.1f;
 
 	params[ PT_VIGNETTE ] = 0.4f;
 	params[ PT_MIX ]      = 1.0f;

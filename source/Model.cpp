@@ -211,12 +211,12 @@ std::vector< Particle > Dust( uint32_t seed, int64_t frame, double amount, doubl
 			p.fibre = draw( 6 ) < 0.25 ? 1 : 0;
 			if( p.fibre )
 			{
-				p.a = lerp( 0.05, 0.30, draw( 7 ) ) / kApertureHeightMm;
-				p.b = lerp( 0.004, 0.009, draw( 8 ) ) / kApertureHeightMm;
+				p.a = lerp( 0.08, 0.45, draw( 7 ) ) / kApertureHeightMm;
+				p.b = lerp( 0.008, 0.016, draw( 8 ) ) / kApertureHeightMm;
 			}
 			else
 			{
-				const double r = std::min( 0.08, 0.008 * std::pow( draw( 7 ), -1.0 / 2.2 ) ) / kApertureHeightMm;
+				const double r = std::min( 0.15, 0.015 * std::pow( draw( 7 ), -1.0 / 2.0 ) ) / kApertureHeightMm;
 				p.a            = r;
 				p.b            = r * lerp( 0.5, 1.0, draw( 8 ) );
 			}

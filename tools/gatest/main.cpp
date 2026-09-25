@@ -634,6 +634,20 @@ void note( bool quiet, const char* format, ... )
 	va_end( args );
 }
 
+/// The light the shutter passes over [a, b], in frames: the stated geometry
+/// (blade openings of `open` of each 1 / B, centred in it) intersected with
+/// the interval, opening by opening. Not the plugin's cumulative function.
+double openTime( double a, double b, int B, double open )
+{
+	double sum = 0.0;
+	for( long j = static_cast< long >( std::floor( a * B ) ) - 1; j <= static_cast< long >( std::ceil( b * B ) ); ++j )
+	{
+		const double lo = ( j + 0.5 * ( 1.0 - open ) ) / B, hi = ( j + 0.5 * ( 1.0 + open ) ) / B;
+		sum += std::max( 0.0, std::min( b, hi ) - std::max( a, lo ) );
+	}
+	return sum;
+}
+
 double sinc( double x )
 {
 	return std::fabs( x ) < 1e-300 ? 1.0 : std::sin( model::kPi * x ) / ( model::kPi * x );
@@ -860,10 +874,17 @@ int runHold( int W, int H, int perturb, bool quiet = false )
 			else
 			{
 				//Two frames in the exposure: a blend of exactly the two
-				//pictures, so strictly between their ratios.
+				//pictures, in the proportions of the light the shutter passed
+				//either side of the pull-down.
+				const int64_t k = clock.latest( m );
+				const double a = openTime( clock.p0( m ), static_cast< double >( k ), 2, 0.5 );
+				const double b = openTime( static_cast< double >( k ), clock.p1( m ), 2, 0.5 );
+				if( a + b <= 0.0 )
+					continue;
 				++blends;
-				const double lo = ratioOf[ captured[ clock.first( m ) ] ], hi = ratioOf[ captured[ clock.latest( m ) ] ];
-				if( r > std::min( lo, hi ) * ( 1.0 - kHalfRatio ) && r < std::max( lo, hi ) * ( 1.0 + kHalfRatio ) )
+				const double old = decode( level( captured[ clock.first( m ) ] ) ), young = decode( level( captured[ k ] ) );
+				const double want = ( a * old + b * young ) / ( ( a + b ) * decode( reference ) );
+				if( std::fabs( r / want - 1.0 ) < kHalfRatio )
 					++blendsOk;
 			}
 		}
@@ -891,7 +912,7 @@ int runHold( int W, int H, int perturb, bool quiet = false )
 		std::snprintf( label, sizeof( label ), "%g fps", clock.projector );
 		failures += report( unmatched == 0 && wrong == 0, quiet, "%s: all %d one-frame exposures show the input captured at their projector frame's pull-down (%d wrong, %d unreadable)",
 		                    label, single, wrong, unmatched );
-		failures += report( blendsOk == blends, quiet, "%s: all %d exposures that straddle a pull-down blend exactly the two frames' pictures (%d do)", label, blends, blendsOk );
+		failures += report( blendsOk == blends, quiet, "%s: all %d lit exposures that straddle a pull-down blend the two frames' pictures in the shutter's proportions (%d do)", label, blends, blendsOk );
 		bool rate = !perSecond.empty();
 		std::string counts;
 		for( int n : perSecond )

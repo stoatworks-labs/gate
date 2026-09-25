@@ -20,17 +20,16 @@
 
     **A shader that will not compile.** `InitGL` returns `FF_FAIL` and from
     the operator's side that looks like "the effect does nothing", with no
-    message anywhere; with five passes this also records *which* one, which is
+    message anywhere; with three passes this also records *which* one, which is
     the difference between a five-minute fix and an afternoon. The GL vendor
     and version strings go in next to it, because a shader that compiles on one
     machine and not on another is a driver answer, not a source answer.
 
-    **A pass buffer that could not be allocated.** This plugin holds
-    Buckets + 2 picture-sized R32F buffers (the ring, the exposure sum and
-    the coating), and the failure mode when the driver says no is a black
-    frame with nothing to explain it. What goes in the log is the size asked
-    for, because at 4K with sixteen buckets that is about 570 MB of float
-    texture, and the size the plugin settled on after every resize.
+    **A pass buffer that could not be allocated.** This plugin holds two
+    picture-sized RGBA16F buffers (the last two projector frames) and a third
+    for a moment on a resize, and the failure mode when the driver says no is
+    a black frame with nothing to explain it. What goes in the log is the size
+    asked for: at 4K that is 66 MB a picture.
 */
 namespace gate::diag
 {
