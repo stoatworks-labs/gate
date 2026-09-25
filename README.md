@@ -13,8 +13,9 @@
 > of each on a shrunk print; a grey through Age keeps each dye's stated density to 1e-7
 > and goes magenta; and a resize leaves the print and the previous frame untouched —
 > with eight negative controls that prove each check can fail. It has **never been
-> loaded into Resolume**; it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
-> which is a real FFGL host and is not Resolume. See [Status](#status).
+> loaded into Resolume on macOS**; there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
+> which is a real FFGL host and is not Resolume. On Windows it passes the fleet's Arena gate
+> in Resolume Arena 7.27.1 on software rendering. See [Status](#status).
 
 A film projector's gate, shutter and print, as an FFGL effect for
 [Resolume](https://resolume.com) Arena and Avenue.
@@ -81,16 +82,24 @@ image every few frames. And a transparent clip prints as black film.
 | **Print** | Scratches, Dust, Splices (0–60 a minute), Cue Dots (press to mark the reel), Age. |
 | **Output** | Vignette (the lens's cos⁴ falloff to the corners), Mix. |
 
-The defaults are a two-blade projector at 24 fps with a 180° opening and a xenon lamp,
+The defaults are a three-blade projector at 24 fps with a 270° opening and a xenon lamp,
 running a lightly worn print: some weave, a few scratches and specks, a hair now and then,
 three splices a minute, and dyes just starting to go. Chosen on Resolume's demo clips.
+
+> **Photosensitivity.** The flicker is a whole-frame pulse at the beat of the projector
+> against your output: 12 Hz at 60 Hz, inside the 3–30 Hz band broadcast flash guidelines
+> restrict. The default shutter keeps it to about ±7–9% of the light; the classic 35 mm
+> shutter, 2 blades at 180°, beats by about ±25–29%, which is why it is not the default. The
+> [user guide](https://stoatworks-labs.com/software/gate/guide/) has the table.
 
 The output is opaque at Mix 1: the projection paints the whole frame, whatever the clip's
 alpha.
 
 ## Status
 
-**v0.1.0, unreleased, and honestly early — 25 September 2026.**
+**v0.1.0, released 25 September 2026, and honestly early.** There is a
+[user guide](https://stoatworks-labs.com/software/gate/guide/)
+([PDF](docs/USER-GUIDE.pdf)) and a [project page](https://stoatworks-labs.com/software/gate/).
 
 ### Measured offline, on macOS
 
@@ -135,11 +144,27 @@ shared GPU):
 The state is the two held pictures, RGBA16F at the input's raster (plus a third for the
 one frame of a resize); the print is on the CPU and costs a 4 KB texture row.
 
+### In Resolume Arena, on Windows
+
+On Windows it has: a build of this source loads, registers and renders in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), with all 21 host controls matching what the plugin declares, in the fleet's Arena gate (9 of 9 checks). The gate's picture is a still, but the projection never stands still (the weave, the dust and the flicker change every frame, a noise floor of 7.3 levels), so 9 of the 15 valued controls read as moving the picture and six read inconclusive (FPS, Shutter Angle, Scratches, Dust, Hair, Splices); none read dead. Software rendering says nothing about a GPU or about speed.
+
+### What filming the release video found
+
+The video is rendered through `gatest --pipe` at 60 Hz over Resolume's demo clips and a
+panorama panned at exactly 8 px a display frame, and cut at 60 fps (the hold and the flicker
+are beats against the display rate). It confirmed the hold on screen (at 24 fps a picture is
+held for two or three display frames, and the frame spanning a pull-down shows both pictures;
+at 16 fps the steps are larger) and found no defect. It never shows the classic shutter (see
+the default below); the deepest flicker filmed is 2 blades at 270°, for three seconds. The
+print's marks read only on bright clips: on the thin-lines-on-black loops there is little
+light for a scratch or a speck to take away.
+
 ### Not done
 
-- **Never loaded into Resolume**, and never built on Windows.
+- **Never loaded into Resolume on macOS.**
 - Seen only on Resolume's bundled demo clips, never on camera footage or film scans.
-- No user guide, no OpenFX port, no factory presets.
+- **No Stock control** (the spec imagined one; this release has Age only), no seed, no
+  display-shutter control for the double images, no OpenFX port, no factory presets.
 
 ## Browser demo
 
