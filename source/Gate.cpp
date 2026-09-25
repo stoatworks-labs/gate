@@ -63,8 +63,12 @@ Gate::Gate()
 	// Defaults, chosen on Resolume's demo clips (AGENTS.md, "Decisions").
 	//---------------------------------------------------------------------
 	params[ PT_FPS ]     = 2.0f;//24
-	params[ PT_BLADES ]  = 1.0f;//2
-	params[ PT_SHUTTER ] = controls::ShutterParam( 180.0 );
+	// 3 blades at 270 degrees, not the classic 2 at 180: at a 60 Hz display the
+	// classic shutter beats at 12 Hz by +-25-29% of the whole frame, which is the
+	// 3-30 Hz band broadcast flash guidelines restrict. This is +-7-9% on the demo
+	// clips (the release survey, AGENTS.md "Decisions").
+	params[ PT_BLADES ]  = 2.0f;//3
+	params[ PT_SHUTTER ] = controls::ShutterParam( 270.0 );
 	params[ PT_LAMP ]    = 1.0f;//Xenon
 	params[ PT_FRAMING ] = 0.5f;//centred
 

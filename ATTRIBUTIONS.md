@@ -1,12 +1,10 @@
 # Attributions
 
-Gate is built on other people's work. This file lists what that work is, who did it, and
-what it is doing here.
+Gate is built on other people's work. This file lists what that work is, who did
+it, and what it is doing here.
 
-PROVISIONAL, hand-written in the shape the backend's `scripts/sync-attributions.py`
-generates (graticule's recipe). Gate is not yet registered in the website's lists, so
-the sync cannot produce this file; once it is, the generated copy replaces this one and
-the entries below move to the master lists in `stoatworks-backend`.
+It is generated — the master lists live in the `stoatworks-backend` repo and are
+pushed out by `scripts/sync-attributions.py`. Edit it there, not here.
 
 ## Code we derived from other people's work
 
@@ -46,7 +44,7 @@ Libraries, SDKs and frameworks the project is built on or bundles.
 Licence: BSD-3-Clause  
 Copyright: FreeFrame
 
-Vendored as a git submodule at external/ffgl, pinned to b1afaf9 like the fleet.
+Vendored as a git submodule at external/ffgl (third_party/ffgl in oxbow).
 
 The plugin ABI itself. An FFGL effect or source is defined by this SDK's headers — there is no other way to be loadable by Resolume Arena and Avenue.
 
@@ -56,7 +54,9 @@ The plugin ABI itself. An FFGL effect or source is defined by this SDK's headers
 Licence: BSD-3-Clause (with Mesa 3-D and Khronos components)  
 Copyright: Milan Ikits, Marcelo E. Magallon and Lev Povalahev
 
-Arrives inside the FFGL submodule at external/ffgl/deps/glew-2.1.0. Not fetched separately. Resolves OpenGL entry points on Windows.
+Arrives inside the FFGL submodule at external/ffgl/deps/glew-2.1.0. Not fetched separately.
+
+Resolves OpenGL entry points on Windows, where the system headers stop at OpenGL 1.1.
 
 ### libpng
 
@@ -64,21 +64,37 @@ Arrives inside the FFGL submodule at external/ffgl/deps/glew-2.1.0. Not fetched 
 Licence: PNG Reference Library License (libpng)  
 Copyright: the PNG Reference Library authors
 
-Arrives inside the FFGL submodule, under the SDK's CustomThumbnail sample. Part of the upstream SDK tree rather than something this plugin calls.
+Arrives inside the FFGL submodule, under the SDK's CustomThumbnail sample.
 
-## Published figures the model uses
+Part of the upstream SDK tree rather than something these plugins call directly — listed because it is present in the checkout.
 
-- **35 mm 4-perforation film geometry** — the 4.75 mm perforation pitch (19.0 mm a frame), the Academy camera aperture (0.864 × 0.630 in) and the projector aperture (0.825 × 0.602 in), as SMPTE's 35 mm standards and every projectionist's manual give them. They set the frame pitch, the frame line and how much printed picture lies beyond the aperture.
-- **Reel-change cues** — a motor cue 8 s and a changeover cue 1 s before the end of a reel at 24 fps, each four frames, top right: the convention as projection manuals describe it.
-- **Eastman colour print dye stability** — that in dark storage the cyan dye of the 1950s–80s Eastmancolor prints fades first and the magenta last, which is why faded prints go magenta: widely documented (for example by the Image Permanence Institute and in Wilhelm and Brower, *The Permanence and Care of Color Photographs*, 1993). The three rates here are chosen to show that order, not fitted to any stock.
-- **The layer order of colour print film** (magenta on top, then cyan, then yellow nearest the base), which is why a shallow emulsion scratch on a print shows green.
+## Work we checked ourselves against
 
-## Standards and published specifications
+No code was taken from these — but they were how we knew we had it right, and that is worth saying out loud.
 
-- **IEC 61966-2-1:1999** — the sRGB primaries, white and transfer function.
-- **CIE 1931 2° observer**, as the multi-lobe Gaussian fit of C. Wyman, P.-P. Sloan and P. Shirley, "Simple Analytic Approximations to the CIE XYZ Color Matching Functions", *Journal of Computer Graphics Techniques* 2(2), 2013 — the lamps' colours are black bodies through it.
-- **Planck's law**, with the 2019 SI exact second radiation constant.
-- **M. S. Bartlett (1946)** — the large-sample variance of an autocorrelation estimate, which sets `gatest --weave`'s tolerances.
+### 35 mm 4-perforation film geometry — SMPTE's 35 mm standards, as projection manuals give them
+
+The 4.75 mm perforation pitch (19.0 mm a frame), the Academy camera aperture (0.864 x 0.630 in) and the projector aperture (0.825 x 0.602 in). They set the frame pitch, the frame line and how much printed picture lies beyond the aperture.
+
+### Reel-change cues — Projection-manual convention
+
+A motor cue 8 s and a changeover cue 1 s before the end of a reel at 24 fps, each four frames, top right.
+
+### Eastman colour print dye stability — Image Permanence Institute; Wilhelm and Brower, The Permanence and Care of Color Photographs (1993)
+
+That in dark storage the cyan dye of 1950s-80s Eastmancolor prints fades first and the magenta last, which is why faded prints go magenta. The three rates here are chosen to show that order, not fitted to any stock.
+
+### The layer order of colour print film
+
+Magenta on top, then cyan, then yellow nearest the base, which is why a shallow emulsion scratch on a print shows green.
+
+### Simple Analytic Approximations to the CIE XYZ Color Matching Functions — C. Wyman, P.-P. Sloan and P. Shirley, JCGT 2(2), 2013
+
+The multi-lobe Gaussian fit of the CIE 1931 2-degree observer the lamps' black-body colours go through.
+
+### The variance of an autocorrelation estimate — M. S. Bartlett, 1946
+
+The large-sample variance that sets gatest --weave's tolerances.
 
 ## Inspirations
 
@@ -86,7 +102,15 @@ What this set out to be. No code, assets or binaries from any of these were used
 
 ### The 35 mm projection booth
 
-Simplex, Century and Kinoton projectors, their two- and three-blade shutters, carbon arcs and xenon lamps, and the release prints that went through them until the scratches, the dust and the splices were part of the picture.
+Simplex, Century and Kinoton projectors, their two- and three-blade shutters, carbon arcs and xenon lamps, and the release prints that went through them until the scratches, the dust and the splices were part of the picture. No code, assets or binaries from any of them were used or examined.
+
+## Standards and published specifications
+
+What the implementation is measured against.
+
+- **IEC 61966-2-1:1999** — the sRGB primaries, white and transfer function.
+- **CIE 1931 2-degree standard observer** — through Wyman, Sloan and Shirley's fit: the lamps' colours.
+- **Planck's law** — with the 2019 SI exact second radiation constant: the lamps as black bodies.
 
 ## Getting this wrong
 
