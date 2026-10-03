@@ -15,8 +15,9 @@
 > with eight negative controls that prove each check can fail. It has **never been
 > loaded into Resolume on macOS**; there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
 > which is a real FFGL host and is not Resolume. On Windows it passes the fleet's Arena gate
-> in Resolume Arena 7.27.1 on software rendering. The OpenFX build has run only in the
-> fleet's test hosts, never in Resolve, Vegas, Nuke or Natron. See [Status](#status).
+> in Resolume Arena 7.27.1 on software rendering. The OpenFX build has been tried once in
+> DaVinci Resolve 21.1, where its first build failed in the Fusion page; the fix is checked
+> only in a test host that mimics Fusion. See [Status](#status).
 
 A film projector's gate, shutter and print, as an FFGL effect for
 [Resolume](https://resolume.com) Arena and Avenue, and as an
@@ -169,6 +170,11 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
   timeline, or FPS 16 or 18, brings the machine's beat back.
 - **FPS does not animate.** The film position is FPS × time; a keyframed FPS would jump the
   strip rather than slow it.
+- **Fusion reports no frame rate; there, the projector assumes a 24 fps timeline.** Resolve's
+  Fusion page gives no frame rate on the effect or on any clip (and a frame range of [0, 0]),
+  so in a Fusion composition FPS 24 is one projector frame per Fusion frame and FPS 16, 18 and
+  25 beat against 24, whatever rate the composition really runs at. The Edit and Color pages
+  report the timeline's rate and are unaffected.
 - **The held pictures are fetched, not remembered.** The FFGL build keeps the two pictures it
   captured at the last two pull-downs; this build fetches the same two frames of the clip
   through temporal clip access: never more than 2 / FPS seconds back (one output frame more
@@ -272,6 +278,9 @@ Measured against the FFGL build on this Mac, never in an OpenFX application:
   rendered after all the ones before it, or in reverse order; with every fetch outside what it
   declares refused, nothing changes.
 - **1920×1080 costs about 19 ms a frame** on the test host's 8 threads (M4 Max, arm64).
+- **Fusion** (4 October): under the test host's Fusion mode — no frame rate anywhere, clip
+  frame range [0, 0] — the previous build fails exactly as it did in Resolve, and this one
+  renders, frame for frame what a 24 fps host gets, at every FPS.
 - The Linux build loads on Rocky 8 in CI (`dlopen` and the two OFX entry points); the
   Windows build is only known to compile.
 
@@ -281,9 +290,11 @@ Measured against the FFGL build on this Mac, never in an OpenFX application:
 - Seen only on Resolume's bundled demo clips, never on camera footage or film scans.
 - **No Stock control** (the spec imagined one; this release has Age only), no seed, no
   display-shutter control for the double images, no factory presets.
-- **The OpenFX build has never been loaded into a real OpenFX host** — not Resolve, Vegas,
-  Nuke or Natron. What it has met is the fleet's test hosts (see above); on Linux only a
-  `dlopen` on Rocky 8 in CI, and on Windows only the compiler.
+- **The OpenFX build has met one real host once, and failed there.** In DaVinci Resolve
+  Studio 21.1's Fusion page the first build stopped the render: Fusion reports no frame rate.
+  The fix (a guarded read and a 24 fps fallback) is verified only in the test host's Fusion
+  mode, not yet in Resolve; it has never been tried on Resolve's Edit page, in Vegas, Nuke or
+  Natron. On Linux only a `dlopen` on Rocky 8 in CI, and on Windows only the compiler.
 
 ## Browser demo
 

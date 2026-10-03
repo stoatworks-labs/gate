@@ -55,6 +55,11 @@
 /// most the 172 projector frames a cue can still be on screen for, and not at
 /// all when the toggle has no keyframes (a constant value never switches).
 ///
+/// **Fusion reports no frame rate.** Resolve's Fusion page gives none on the
+/// effect or on any clip, and its frame range reads [0, 0]. `frameRate()`
+/// guards every read and falls back to 24 fps, so there the projector assumes
+/// a 24 fps timeline; nothing reads the frame range.
+///
 /// Consequences an editor will see, all of them the machine's: on a 24 fps
 /// timeline at FPS 24 every output frame integrates exactly one projector
 /// frame, so there is no beat and no double image -- the print, the weave and
@@ -68,6 +73,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <initializer_list>
 #include <memory>
 #include <vector>
 
@@ -107,9 +113,16 @@ constexpr const char* kPluginDescription =
 	"projector frames back. FPS does not animate. Cue Dots is a toggle: "
 	"keyframe it from off to on and the marks start on the frame in the gate "
 	"then, and return 168 projector frames later.\n\n"
+	"Fusion reports no frame rate; there, the projector assumes a 24 fps "
+	"timeline.\n\n"
 	"The flicker is a whole-frame pulse; the user guide has a photosensitivity "
 	"note.\n\n"
 	"https://stoatworks-labs.com";
+
+/// The frame rate the projector runs against when the host reports none:
+/// Resolve's Fusion page reports none (see frameRate()), and 24 is Resolve's
+/// default timeline rate.
+constexpr double kFallbackFrameRate = 24.0;
 
 constexpr const char* kParamFps       = "fps";
 constexpr const char* kParamBlades    = "blades";
@@ -489,20 +502,37 @@ public:
 	/// Every output frame is different even on a still: the weave, the dust
 	/// and the shutter move on. A host that assumed otherwise would cache one
 	/// frame of a still clip for its whole length.
+	///
+	/// A preference, not a requirement: a host that does not know the property
+	/// is left to its own default rather than failing the effect.
 	void getClipPreferences( OFX::ClipPreferencesSetter& preferences ) override
 	{
-		preferences.setOutputFrameVarying( true );
+		try
+		{
+			preferences.setOutputFrameVarying( true );
+		}
+		catch( ... )
+		{
+		}
 	}
 
 	/// The two held pictures are earlier frames of the source; say which, or a
-	/// host is entitled to refuse the fetches.
+	/// host is entitled to refuse the fetches. Never throws: a host that cannot
+	/// take the answer still fetches on request, and a fetch it refuses is a
+	/// null image, which render already handles.
 	void getFramesNeeded( const OFX::FramesNeededArguments& args, OFX::FramesNeededSetter& frames ) override
 	{
-		const Hold hold = holdAt( clockAt( args.time ), args.time );
-		OfxRangeD range;
-		range.min = std::min( hold.previousTime, args.time );
-		range.max = args.time;
-		frames.setFramesNeeded( *srcClip, range );
+		try
+		{
+			const Hold hold = holdAt( clockAt( args.time ), args.time );
+			OfxRangeD range;
+			range.min = std::min( hold.previousTime, args.time );
+			range.max = args.time;
+			frames.setFramesNeeded( *srcClip, range );
+		}
+		catch( ... )
+		{
+		}
 	}
 
 	void render( const OFX::RenderArguments& args ) override
@@ -548,10 +578,8 @@ public:
 		// them. Before the clip has a frame to give, the older one is the
 		// newer one, as on the FFGL build's first frame.
 		//---------------------------------------------------------------------
-		const bool srcPremultiplied = comps != OFX::ePixelComponentRGBA
-		                              || srcClip->getPreMultiplication() != OFX::eImageUnPreMultiplied;
-		const bool dstPremultiplied = comps != OFX::ePixelComponentRGBA
-		                              || dstClip->getPreMultiplication() != OFX::eImageUnPreMultiplied;
+		const bool srcPremultiplied = comps != OFX::ePixelComponentRGBA || premultiplied( srcClip );
+		const bool dstPremultiplied = comps != OFX::ePixelComponentRGBA || premultiplied( dstClip );
 
 		std::unique_ptr< OFX::Image > currentImage, previousImage;
 		const OFX::Image* current = src.get();
@@ -642,16 +670,59 @@ private:
 		return exposure::FromHost( host, 0 );
 	}
 
-	/// The clip's frame rate. A host that reports none -- some do with
-	/// nothing connected -- would otherwise divide by it.
+	/// The timeline's frame rate, which sets the film position and the held
+	/// pictures' window.
+	///
+	/// Resolve's Fusion page reports NO frame rate -- not on the effect, not on
+	/// any clip -- and the Support library turns the missing property into an
+	/// exception (PropertyUnknownToHost), which escaping render fails the whole
+	/// composition. So every read is guarded on its own, the output clip, then
+	/// the source, then the effect, the first positive finite value wins, and
+	/// with none the projector runs against kFallbackFrameRate: Resolve's
+	/// default timeline rate. Fusion's frame range ([0, 0] there) is not read
+	/// at all; the held pictures are fetched by time and a refused fetch is a
+	/// null image.
 	double frameRate() const
 	{
-		double rate = dstClip->getFrameRate();
-		if( !( rate > 0.0 ) )
-			rate = srcClip->getFrameRate();
-		if( !( rate > 0.0 ) )
-			rate = 24.0;
-		return rate;
+		const auto usable = []( double rate ) { return std::isfinite( rate ) && rate > 0.0; };
+		for( const OFX::Clip* clip : { dstClip, srcClip } )
+		{
+			if( clip == nullptr )
+				continue;
+			try
+			{
+				const double rate = clip->getFrameRate();
+				if( usable( rate ) )
+					return rate;
+			}
+			catch( ... )
+			{
+			}
+		}
+		try
+		{
+			const double rate = getFrameRate();
+			if( usable( rate ) )
+				return rate;
+		}
+		catch( ... )
+		{
+		}
+		return kFallbackFrameRate;
+	}
+
+	/// Whether a clip is premultiplied; a host that does not say is taken to
+	/// be, which is what every host the fleet has met does.
+	static bool premultiplied( const OFX::Clip* clip )
+	{
+		try
+		{
+			return clip->getPreMultiplication() != OFX::eImageUnPreMultiplied;
+		}
+		catch( ... )
+		{
+			return true;
+		}
 	}
 
 	Clock clockFor( const exposure::Settings& settings, double ) const

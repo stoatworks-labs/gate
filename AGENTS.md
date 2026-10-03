@@ -378,6 +378,33 @@ the oldest), and is skipped when the toggle has no keyframes (`getNumKeys() == 0
 never switches). `model::IsCue` reads a negative start as "never", so a cue on a negative
 projector frame (a host with negative frame numbers) does not show.
 
+**Fusion reports no frame rate; there, the projector assumes a 24 fps timeline.** Found by
+the lead in DaVinci Resolve Studio 21.1 (MediaIn → Gate → MediaOut, a render job to PNG):
+the job failed with "could not be processed", and the Support library, built with DEBUG,
+logged `PropertyUnknownToHost: OfxImageEffectPropFrameRate` escaping render as
+`kOfxStatErrMissingHostFeature`. The Fusion page gives no frame rate on the effect or on
+any clip, reports the frame range as [0, 0], and leaves out the unmapped rate and range and
+the render-status properties. `frameRate()` now reads the output clip, the source clip and
+the effect, each in its own `try`, takes the first positive finite value, and otherwise
+runs against `kFallbackFrameRate`, 24 (Resolve's default timeline rate). `getFramesNeeded`
+and `getClipPreferences` catch everything (a host that cannot take the answer still fetches
+on request, and a refused fetch is a null image render handles); the premultiplication reads
+default to premultiplied. Nothing reads the frame range, so [0, 0] cannot shorten the hold.
+In Fusion, then, FPS 24 is one projector frame per Fusion frame whatever the composition's
+rate; the Edit and Color pages report the timeline's rate and are unaffected.
+
+Checked (2026-10-04) with the test host's `--quirks fusion`, which removes FrameRate from the
+effect and every clip, reports clip FrameRange [0, 0], gives the unmapped pair dimension 0
+and drops the render-status properties: the previous build (f47a343) fails exactly as Resolve
+did (`kOfxStatErrMissingHostFeature`); this one renders, and 120 frames at each of FPS 16,
+18, 24 and 25 (Hair 1, framed up, a cue switched on at 30, every undeclared fetch refused,
+none refused) are byte-identical to the same frames on a host reporting 24 fps and differ
+from 25 and 60 on every frame. `getFramesNeeded` under the quirk gives `[36, 37]` at FPS 16,
+t = 37 (24 fps arithmetic). On the normal host the new build is byte-identical to the old on
+480 frames (60 and 24 fps, the defaults, every mark up, FPS 25 framed deep), so every number
+below stands. verify.sh's fusion step repeats the render and the 24/60 comparison when
+`OFXHOST` names a test host with `--quirks`, and skips otherwise.
+
 **Everything else.** Colour is taken as the FFGL build takes it: sRGB-encoded values,
 decoded to linear for the print and encoded back, so a scene-linear host wants a conversion
 either side. The clip is read as premultiplied (an unpremultiplied one is multiplied up, so a
@@ -453,8 +480,10 @@ ms a frame, median 19.0 (every mark at 1: median 19.9; a 24 fps clip: 19.3), on 
 host's multi-thread suite, which hands out 8 threads (min of the cores, 8). arm64 Release
 build. About two hundred times the GPU's 0.09 ms; an offline host is for that.
 
-**Not verified:** any real OpenFX host. It has never been in Resolve, Vegas, Nuke or Natron;
-the Linux build is only `dlopen`ed on Rocky 8 in CI and Windows only compiled. The
+**Not verified:** a real OpenFX host rendering it. Resolve 21.1's Fusion page failed the
+first build (above); the fix is checked only under the test host's `--quirks fusion`, and the
+lead re-runs Resolve. Resolve's Edit page, Vegas, Nuke and Natron are untried; the Linux build
+is only `dlopen`ed on Rocky 8 in CI and Windows only compiled. The
 Transition and Generator contexts do not apply (one input, an effect).
 
 ---
@@ -599,9 +628,10 @@ at 320x180 and 1280x720 and on the software renderer.
   footage, never on film scans.
 - **The clock-unit voting** is readout's, which has met Arena; this plugin has not.
 - **Not verified at 4K**, only benchmarked there.
-- **The OpenFX build has never been in a real OpenFX host** — not Resolve, Vegas, Nuke or
-  Natron. Only the stock ofxprobe, a scratch-space test host and, on Linux, a `dlopen` on
-  Rocky 8 in CI. The Windows build is only known to compile. Its colour handling assumes
+- **The OpenFX build has met a real host once and failed**: Resolve 21.1's Fusion page,
+  which reports no frame rate (fixed; the fix is checked only in the test host's Fusion
+  mode). Otherwise only the stock ofxprobe, a scratch-space test host and, on Linux, a
+  `dlopen` on Rocky 8 in CI. The Windows build is only known to compile. Its colour handling assumes
   display-referred input, as the FFGL build does; nothing has checked how a host's colour
   management feeds it.
 - **No factory presets, seed or Stock control.** There is a user guide

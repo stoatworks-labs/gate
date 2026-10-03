@@ -29,8 +29,10 @@ dyes have just started to go.*
 > chosen numbers (see Known limits). It has **never been loaded into Resolume on macOS**; there
 > the one host it has run in is the fleet's own test host, `oxbow`, for 120 frames.
 > On Windows it has: a build of this source loads, registers and renders in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), with all 21 host controls matching what the plugin declares, in the fleet's Arena gate (9 of 9 checks). The gate's picture is a still, but the projection never stands still (the weave, the dust and the flicker change every frame, a noise floor of 7.3 levels), so 9 of the 15 valued controls read as moving the picture and six read inconclusive (FPS, Shutter Angle, Scratches, Dust, Hair, Splices); none read dead. Software rendering says nothing about a GPU or about speed.
-> The OpenFX build has never been loaded into Resolve, Vegas, Nuke or Natron: it has run in
-> the fleet's own test hosts, where it matches the FFGL build to one level in 255.
+> The OpenFX build has been tried once in DaVinci Resolve, where its first build failed in
+> the Fusion page; the fix has been checked only in a test host that behaves like Fusion. It
+> has not been tried in Vegas, Nuke or Natron. In the fleet's test hosts it matches the FFGL
+> build to one level in 255.
 > Try it on a spare layer before you put it in a show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
@@ -337,6 +339,10 @@ the output pass runs on the CPU and matches the GPU's to one level in 255. What 
   remain. A 25, 30, 50 or 60 fps timeline, or FPS 16 or 18, brings the beat back (the Flicker
   table above is for a 60 fps output, so a 60 fps timeline).
 - **FPS cannot be keyframed.** The strip would jump rather than slow down.
+- **Fusion reports no frame rate; there, the projector assumes a 24 fps timeline.** In
+  Resolve's Fusion page, FPS 24 shows one projector frame per Fusion frame and the other rates
+  beat against 24, whatever the composition's own rate. On the Edit and Color pages it uses
+  the timeline's real rate.
 - **Cue Dots is a toggle you keyframe.** Set a keyframe with it off, then one with it on at the
   frame the marks should start: they appear on the projector frame in the gate there, for four
   frames, and again 168 projector frames later. The latest switch on wins; switching off does
@@ -376,9 +382,10 @@ The CPU render costs far more than the GPU's: see Performance.
 - **Only ever run on an Apple M4 Max**, although the macOS build contains an Intel slice. On
   Windows, see the note at the top of this guide.
 - **No presets.**
-- **The OpenFX build has never been loaded into a real OpenFX host.** It has run in the fleet's
-  test hosts on macOS; the Linux build is only shown to load on Rocky 8, and the Windows build
-  only to compile.
+- **The OpenFX build has barely met a real host.** Its first build failed in DaVinci
+  Resolve's Fusion page; the fix is checked only in a test host that behaves like Fusion.
+  Otherwise it has run in the fleet's test hosts on macOS; the Linux build is only shown to
+  load on Rocky 8, and the Windows build only to compile.
 - **There is a browser demo** at [gate-demo.stoatworks-labs.com](https://gate-demo.stoatworks-labs.com/). It is a port to a web page, not the plugin: the shaders run in WebGL2, and the projector and the print (the shutter's weights, the weave, the dirt, the dyes, the clock) are rewritten in JavaScript. Its flicker beats against your browser's display rate. The page lists what it does not reproduce.
 
 ---

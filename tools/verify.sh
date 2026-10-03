@@ -62,6 +62,11 @@
 #                 defaults and three other settings, while two settings that
 #                 differ by one notch of Weave are told apart
 #                 (tools/ofx_agree.py).
+#   fusion        the OpenFX bundle where the host reports no frame rate, as
+#                 Resolve 21.1's Fusion page does (no FrameRate anywhere, clip
+#                 FrameRange [0, 0]): it must render, and render exactly what a
+#                 24 fps host gets, its stated fallback. Needs a test host with
+#                 `--quirks fusion` (OFXHOST=...); skipped without one.
 #
 set -uo pipefail
 
@@ -462,6 +467,56 @@ if [ "$(uname)" = "Darwin" ]; then
 			agree "frame 0 agrees: framed 0.4 down, past the frame line into the next picture" \
 				"framing=0.9|Framing=0.9" "age=0.3|Age=0.3"
 			agree "the comparison can fail: Weave 0.25 against 0.26 is told apart" --control "weave=0.25|Weave=0.26"
+		fi
+
+		#-------------------------------------------------------------------
+		# Fusion. Resolve's Fusion page reports no frame rate on the effect or
+		# any clip, and the Support library turns that into an exception; the
+		# first build let it escape render and the whole composition failed.
+		# A test host with `--quirks fusion` presents the same properties.
+		# Here a 12-frame sequence at FPS 16 must render under it, frame for
+		# frame what a 24 fps host gets (the fallback), and differ from a
+		# 60 fps one (so the fallback, not luck, is what was used).
+		#-------------------------------------------------------------------
+		step "fusion (no frame rate from the host)"
+		# Captured and matched, not piped into grep -q: under pipefail a grep
+		# that finds its match early can fail the pipeline (see registration).
+		hasquirks() { local h; h=$("$1" --help 2>&1); case "$h" in *--quirks*) return 0 ;; *) return 1 ;; esac; }
+		if [ -z "${OFXHOST:-}" ] && [ -x "${OFXPROBE:-}" ] && hasquirks "$OFXPROBE"; then
+			OFXHOST="$OFXPROBE"
+		fi
+		if [ -z "${OFXHOST:-}" ] || [ ! -x "$OFXHOST" ] || ! hasquirks "$OFXHOST"; then
+			printf '   skipped: no test host with --quirks fusion (set OFXHOST to one)\n'
+		else
+			tmp=$(mktemp -d)
+			python3 - "$tmp" <<'PY'
+import sys
+d = sys.argv[1]
+W, H = 96, 54
+for n in range(12):
+    px = bytearray()
+    for y in range(H):
+        for x in range(W):
+            bar = n * 6 <= x < n * 6 + 8
+            px += bytes((250, 250, 250)) if bar else bytes(((x * 5) % 256, (y * 9) % 256, 40 + 16 * n))
+    open(f"{d}/f{n:04d}.ppm", "wb").write(b"P6\n%d %d\n255\n" % (W, H) + px)
+PY
+			common=(--no-system-dirs --dir "$BUILD" --render com.stoatworks.gate --seq "$tmp/f%04d.ppm" --set fps=0 --set framing=0.35 --time 9)
+			fusion=$("$OFXHOST" "${common[@]}" --quirks fusion --out-only "$tmp/fusion.ppm" 2>&1)
+			if ! printf '%s\n' "$fusion" | grep -q "^rendered"; then
+				fail "does not render under --quirks fusion -- a frame-rate read escapes"
+				printf '%s\n' "$fusion" | grep -iE 'fail|error' | sed 's/^/      /'
+			else
+				pass "renders under --quirks fusion (no FrameRate, FrameRange [0,0])"
+				"$OFXHOST" "${common[@]}" --frame-rate 24 --out-only "$tmp/r24.ppm" >/dev/null 2>&1
+				"$OFXHOST" "${common[@]}" --frame-rate 60 --out-only "$tmp/r60.ppm" >/dev/null 2>&1
+				if cmp -s "$tmp/fusion.ppm" "$tmp/r24.ppm" && ! cmp -s "$tmp/fusion.ppm" "$tmp/r60.ppm"; then
+					pass "under Fusion it renders exactly what a 24 fps host gets (and not a 60 fps one)"
+				else
+					fail "under Fusion it does not match the 24 fps fallback"
+				fi
+			fi
+			rm -rf "$tmp"
 		fi
 	fi
 fi

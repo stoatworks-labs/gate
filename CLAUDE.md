@@ -116,6 +116,14 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
   the held pictures fetched at the output frames the FFGL bookkeeping would have captured
   them on (`holdAt`). Pure in t; FPS does not animate; Cue Dots is a toggle whose last
   off→on switch fires (searched back at most 172 projector frames, skipped with no keys).
+- **Fusion reports no frame rate** (Resolve 21.1's Fusion page: none on the effect or any
+  clip, frame range [0, 0]). `frameRate()` reads the output clip, the source, then the
+  effect, each in its own try/catch, and falls back to 24; `getFramesNeeded`,
+  `getClipPreferences` and the premultiplication reads never throw; nothing reads the frame
+  range. Before this the missing property escaped render and failed the composition.
+  The test host's `--quirks fusion` reproduces it; `OFXHOST=<that ofxprobe> tools/verify.sh`
+  runs the fusion step (render under the quirk, byte-identical to a 24 fps host, not to a
+  60 fps one), and skips it without one.
 - **The GPU's half-float store rounds toward zero** (measured on this Mac, not documented):
   the FFGL build's held pictures are up to 2^-11 darker than the float the OpenFX build
   keeps, so the two agree to 1/255 with the OpenFX one a level brighter on the 2–5% of
@@ -133,9 +141,10 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - **Never loaded into Resolume on macOS.** Everything numeric is measured offline against
   the real plugin class in a headless CGL context, plus an `oxbow` load. On Windows it passes
   the fleet's Arena gate (Arena 7.27.1, llvmpipe), 9/9 (see AGENTS.md).
-- **The OpenFX build has never been in a real OpenFX host** (Resolve, Vegas, Nuke, Natron):
-  only ofxprobe and the fleet's test host on macOS, a Rocky 8 `dlopen` in CI, and the
-  Windows compiler.
+- **The OpenFX build has met one real host once**: Resolve 21.1's Fusion page, where the
+  first build failed (no frame rate). The fix is checked only under the test host's
+  `--quirks fusion`; Resolve's Edit page, Vegas, Nuke and Natron are untried. Otherwise
+  ofxprobe and the test host on macOS, a Rocky 8 `dlopen` in CI, the Windows compiler.
 - No factory presets, no Stock or seed control.
 - The default shutter is 3 blades at 270° (photosensitivity; AGENTS.md "The three questions").
 - `StoatworksAbout.h`, `ATTRIBUTIONS.md`, `.github/ISSUE_TEMPLATE/` and `.github/FUNDING.yml`
