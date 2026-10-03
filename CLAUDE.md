@@ -3,8 +3,9 @@
 A film projector's gate, shutter and print — the clip held at the projector's rate, its
 light integrated through the blades, each frame weaving in the gate, and a print with
 grit, dust, a hair, splices, cue dots and fading dyes — as an FFGL **effect** for
-Resolume Arena/Avenue. C++/GLSL, CMake MODULE → universal `.bundle` (macOS) + Windows
-`.dll`. MIT.
+Resolume Arena/Avenue, and an **OpenFX** effect (`Gate.ofx.bundle`, CPU render) for Resolve,
+Vegas, Nuke and Natron. C++/GLSL, CMake MODULE → universal `.bundle` (macOS) + Windows
+`.dll`; the OpenFX bundle for macOS (universal), Win64 and Linux. MIT.
 
 Read `AGENTS.md` before changing the shutter, the hold, the print or a check's tolerance.
 
@@ -15,6 +16,15 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - Build: `cmake --build build --parallel`
 - Install into Arena: `cmake --install build` — **not run from a session**, it writes
   into `~/Documents/Resolume Arena/Extra Effects`
+- The OpenFX plugin is built by the same configure: `build/Gate.ofx.bundle` (`-DBUILD_OFX=OFF`
+  to skip). `-DGATE_BUILD_FFGL=OFF` builds it alone with no FFGL SDK, GL or GLEW (the Linux
+  job). Never install it into `/Library/OFX/Plugins` from a session (root-owned, and an
+  installed copy would shadow the build in ofxprobe)
+- Render the OpenFX plugin once: `../resolume-ofx-bridge/build/ofxprobe --dir build --render
+  com.stoatworks.gate --size 640x360 --out /tmp/o.bmp [--set weave=1]` (time 0, a 60 fps
+  clip, its own ramp as input; parameters by script name: `fps`, `blades`, `shutterAngle`,
+  `lamp`, `framing`, `weave`, `shrinkage`, `hair`, `scratches`, `dust`, `splices`, `cueDots`,
+  `age`, `vignette`, `mix`)
 - Render a frame offline: `./build/gatest --out /tmp/f.png --size 1920x1080`
   (90 frames of the moving card at a synthetic 60 fps, then the last one;
   `--average` writes the mean of every frame instead)
@@ -52,6 +62,15 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - No dead controls: `python3 tools/sweep.py` (`--size WxH`, `--jobs N`)
 - Render cost and the state held: `./build/gatest --bench`
 - What a host sees: `~/Projects/resolume/oxbow/build/oxbow probe build-universal/Gate.bundle`
+- The OpenFX build against the FFGL build, frame 0 on ofxprobe's input, per pixel:
+  `python3 tools/ofx_agree.py --ofxprobe ../resolume-ofx-bridge/build/ofxprobe --dir build
+  --gatest build/gatest ["fps=0|FPS=0" ...]` (`--control` for a pair that must differ);
+  verify.sh runs it at four settings and one control
+- The same over time: `python3 tools/ofx_sequence.py --ofxprobe <test host> --dir build
+  --gatest build/gatest --fps 16 [--frames 120] [--cue 10,300] [pairs]` — needs the test
+  host with `--seq`/`--key`/`--batch` (built from resolume-ofx-bridge, October 2026); frames
+  where gatest's accumulated clock ties at a pull-down (FPS 24 from frame 14, 25 from 11)
+  are reported apart
 
 ## Notes
 - **The machine, not the look.** `Model.{h,cpp}` is the projector and the print in
@@ -83,7 +102,25 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - Override `SetTextParameter` to return FF_SUCCESS for the About block, or no host can
   instantiate the plugin at all.
 - `gate_core` is an OBJECT library, not STATIC — the plugin registers itself from a
-  file-scope constructor nothing references by name.
+  file-scope constructor nothing references by name. `gate_model` (Model, Controls,
+  Exposure) is a second, GL-free OBJECT library both plugins link; name it on every final
+  target, because an OBJECT library's objects do not travel through another OBJECT library.
+- **Two builds, one projector.** `Exposure.cpp` turns the segments and the controls into
+  everything the output pass reads except the pictures (weights, offsets, flags, the
+  print-data row, the constants); `Gate.cpp` uploads it, `source/ofx/GateOFX.cpp` hands it to
+  `Projection.cpp`, the output pass in C++. **`kOutputBody` and `Projection.cpp` are one
+  pass written twice** — both marked `//= mirrored`; edit both, then run verify.sh (the
+  openfx step compares them pixel for pixel). A change to Exposure, Model or Controls needs
+  no mirror.
+- **OpenFX time is the timeline**: p1 = FPS × (t + 1) / rate, the exposure one output frame,
+  the held pictures fetched at the output frames the FFGL bookkeeping would have captured
+  them on (`holdAt`). Pure in t; FPS does not animate; Cue Dots is a toggle whose last
+  off→on switch fires (searched back at most 172 projector frames, skipped with no keys).
+- **The GPU's half-float store rounds toward zero** (measured on this Mac, not documented):
+  the FFGL build's held pictures are up to 2^-11 darker than the float the OpenFX build
+  keeps, so the two agree to 1/255 with the OpenFX one a level brighter on the 2–5% of
+  pixels that sit on a rounding edge, never darker. With the truncation emulated in the CPU
+  copy they agreed on all but 0–2 pixels of 57 600 (AGENTS.md, "The OpenFX build").
 - `FFGLScopedFBOBinding.h` is not in the umbrella header; include it by hand.
 - macOS build must be universal. Verify with `lipo`, never the build log.
 - GLSL 4.10 reserved words are not identifiers: `patch sample input output filter
@@ -96,7 +133,10 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - **Never loaded into Resolume on macOS.** Everything numeric is measured offline against
   the real plugin class in a headless CGL context, plus an `oxbow` load. On Windows it passes
   the fleet's Arena gate (Arena 7.27.1, llvmpipe), 9/9 (see AGENTS.md).
-- No OpenFX port, no factory presets, no Stock or seed control.
+- **The OpenFX build has never been in a real OpenFX host** (Resolve, Vegas, Nuke, Natron):
+  only ofxprobe and the fleet's test host on macOS, a Rocky 8 `dlopen` in CI, and the
+  Windows compiler.
+- No factory presets, no Stock or seed control.
 - The default shutter is 3 blades at 270° (photosensitivity; AGENTS.md "The three questions").
 - `StoatworksAbout.h`, `ATTRIBUTIONS.md`, `.github/ISSUE_TEMPLATE/` and `.github/FUNDING.yml`
   are GENERATED by the backend's sync scripts; the user guide is `docs/USER-GUIDE.md` (PDF

@@ -1,7 +1,9 @@
 # Gate user guide
 
 Gate is **a film projector's gate, shutter and print, for [Resolume](https://resolume.com)
-Arena and Avenue**, as an FFGL effect. It does not paint a film look over the clip. It models
+Arena and Avenue**, as an FFGL effect, and for DaVinci Resolve, Vegas, Nuke and Natron as an
+OpenFX effect (see [OpenFX](#openfx-resolve-vegas-nuke-natron)). It does not paint a film look
+over the clip. It models
 the machine: a claw that pulls the film down one frame at a time, a shutter whose blades let the
 lamp through only while the film is still, a gate that holds each frame a little off true, and a
 print with grit, dust, splices and dyes that fade. The judder, the flicker, the weave, the
@@ -27,6 +29,8 @@ dyes have just started to go.*
 > chosen numbers (see Known limits). It has **never been loaded into Resolume on macOS**; there
 > the one host it has run in is the fleet's own test host, `oxbow`, for 120 frames.
 > On Windows it has: a build of this source loads, registers and renders in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), with all 21 host controls matching what the plugin declares, in the fleet's Arena gate (9 of 9 checks). The gate's picture is a still, but the projection never stands still (the weave, the dust and the flicker change every frame, a noise floor of 7.3 levels), so 9 of the 15 valued controls read as moving the picture and six read inconclusive (FPS, Shutter Angle, Scratches, Dust, Hair, Splices); none read dead. Software rendering says nothing about a GPU or about speed.
+> The OpenFX build has never been loaded into Resolve, Vegas, Nuke or Natron: it has run in
+> the fleet's own test hosts, where it matches the FFGL build to one level in 255.
 > Try it on a spare layer before you put it in a show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
@@ -52,6 +56,8 @@ Windows  %USERPROFILE%\Documents\Resolume Arena\Extra Effects\
 
 Avenue uses the same layout under its own folder name. The effect then appears in the effects
 browser as **SW Gate**.
+
+The OpenFX build is a separate download, `gate-ofx-*.zip`; see [OpenFX](#openfx-resolve-vegas-nuke-natron).
 
 The macOS download is a universal build (Apple silicon and Intel), as a `.dmg` or a `.zip`.
 It is Developer ID-signed and notarised by the release pipeline after publication, so the bundle simply loads; if macOS refuses a download, it predates the signing — download it again. The Windows download is an x64 installer or a `.zip`. It is not code-signed,
@@ -176,7 +182,8 @@ some are white, dirt printed in from the negative.
 splice frame jumps by 4 to 12% of the height and flashes.
 
 **Cue Dots** (a button). Fires the reel-change marks: dots top right for four projector frames,
-then four more 168 frames (seven seconds at 24 fps) later, the motor and changeover cues.
+then four more 168 frames (seven seconds at 24 fps) later, the motor and changeover cues. In the
+OpenFX build it is a toggle you keyframe (see OpenFX).
 
 **Age** (0 to 1, default 0.1). How far the dyes have faded. Each dye keeps `exp(−k × Age)` of its
 density, with k = 2.0 for cyan, 0.15 for magenta and 0.8 for yellow, so an old print loses its
@@ -265,6 +272,10 @@ sides, on a GPU shared with other work: 0.087 ms a frame at 1280 × 720, 0.084 a
 0.27 at 3840 × 2160 (1.6% of a 60 fps frame), holding 14, 32 and 127 MB (two half-float pictures
 at the input's size). Nothing was timed inside Resolume, and nothing was timed on Windows.
 
+The OpenFX build renders on the CPU: about 19 ms a frame at 1920 × 1080 on eight threads of
+the same M4 Max (18.6–25.7 ms over 24 frames, in a test host, not in Resolve), about two
+hundred times the GPU's cost.
+
 ---
 
 ## If it looks wrong
@@ -303,6 +314,45 @@ host's clock and the unit the plugin decided it is in.
 
 ---
 
+## OpenFX (Resolve, Vegas, Nuke, Natron)
+
+The same projector builds as an OpenFX plugin. Copy `Gate.ofx.bundle` from the `gate-ofx-*`
+zip for your platform into the OpenFX folder and restart the host:
+
+```
+macOS    /Library/OFX/Plugins/
+Windows  C:\Program Files\Common Files\OFX\Plugins\
+Linux    /usr/OFX/Plugins/
+```
+
+It appears as **Gate**, under **Stoatworks**, with the same controls, ranges, defaults and
+groups as the Resolume build. The projector and the print are the same code and the same strip;
+the output pass runs on the CPU and matches the GPU's to one level in 255. What differs:
+
+- **The projector runs on the timeline.** The film position is FPS × time, and each output
+  frame's exposure is one frame of the timeline, so any frame renders the same whether you
+  scrub to it or play up to it. The flicker, the hold and the double images are beats against
+  the **timeline's** rate. On a 24 fps timeline at FPS 24 each output frame is exactly one
+  projector frame: no flicker, no judder, no double images — the weave, the print and the marks
+  remain. A 25, 30, 50 or 60 fps timeline, or FPS 16 or 18, brings the beat back (the Flicker
+  table above is for a 60 fps output, so a 60 fps timeline).
+- **FPS cannot be keyframed.** The strip would jump rather than slow down.
+- **Cue Dots is a toggle you keyframe.** Set a keyframe with it off, then one with it on at the
+  frame the marks should start: they appear on the projector frame in the gate there, for four
+  frames, and again 168 projector frames later. The latest switch on wins; switching off does
+  nothing; a toggle with no keyframes never fires.
+- **The held pictures are earlier frames of the clip**, fetched where each projector frame was
+  pulled down: never more than 2 / FPS seconds back (7 frames of a 60 fps timeline at FPS 16).
+  At the very start of a clip there is no earlier frame, and the newer one stands in.
+- **Colour is taken as display-referred**, like Resolume's: the clip is decoded as sRGB for the
+  print and encoded back. In a scene-linear setup (Nuke, Natron, a linear Resolve node graph)
+  convert to an sRGB-like encoding before it and back after.
+- The About group is folded at the bottom of the controls; its buttons open the same pages.
+
+The CPU render costs far more than the GPU's: see Performance.
+
+---
+
 ## Known limits
 
 - **The machine's behaviour is chosen, not measured.** The geometry is published (the 35 mm frame
@@ -325,7 +375,10 @@ host's clock and the unit the plugin decided it is in.
 - **Checked at 320 × 180 and 1280 × 720** in the harness, and only timed at 4K.
 - **Only ever run on an Apple M4 Max**, although the macOS build contains an Intel slice. On
   Windows, see the note at the top of this guide.
-- **No presets and no OpenFX version.**
+- **No presets.**
+- **The OpenFX build has never been loaded into a real OpenFX host.** It has run in the fleet's
+  test hosts on macOS; the Linux build is only shown to load on Rocky 8, and the Windows build
+  only to compile.
 - **There is a browser demo** at [gate-demo.stoatworks-labs.com](https://gate-demo.stoatworks-labs.com/). It is a port to a web page, not the plugin: the shaders run in WebGL2, and the projector and the print (the shutter's weights, the weave, the dirt, the dyes, the clock) are rewritten in JavaScript. Its flicker beats against your browser's display rate. The page lists what it does not reproduce.
 
 ---

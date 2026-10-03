@@ -15,10 +15,13 @@
 > with eight negative controls that prove each check can fail. It has **never been
 > loaded into Resolume on macOS**; there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
 > which is a real FFGL host and is not Resolume. On Windows it passes the fleet's Arena gate
-> in Resolume Arena 7.27.1 on software rendering. See [Status](#status).
+> in Resolume Arena 7.27.1 on software rendering. The OpenFX build has run only in the
+> fleet's test hosts, never in Resolve, Vegas, Nuke or Natron. See [Status](#status).
 
 A film projector's gate, shutter and print, as an FFGL effect for
-[Resolume](https://resolume.com) Arena and Avenue.
+[Resolume](https://resolume.com) Arena and Avenue, and as an
+[OpenFX](#openfx--resolve-vegas-nuke-natron) effect for DaVinci Resolve, Vegas, Nuke and
+Natron.
 
 ![Resolume's demo clip Beat 001 through the projector: a grey machine landscape gone faintly pink, a green gate scratch down the left, the corners falling off, a hair caught at the top right of the gate](docs/hero.png)
 
@@ -133,6 +136,57 @@ three splices a minute, and dyes just starting to go. Chosen on Resolume's demo 
 The output is opaque at Mix 1: the projection paints the whole frame, whatever the clip's
 alpha.
 
+## OpenFX — Resolve, Vegas, Nuke, Natron
+
+The same projector also builds as an OpenFX plugin, so it runs in DaVinci Resolve (Edit and
+Color pages, and Fusion), Vegas Pro, Nuke and Natron. It appears as **Gate** under
+**Stoatworks**. Grab the `gate-ofx-*` zip for your platform from the release and copy
+`Gate.ofx.bundle` into the standard OpenFX folder, then restart the host:
+
+```
+macOS    /Library/OFX/Plugins/
+Windows  C:\Program Files\Common Files\OFX\Plugins\
+Linux    /usr/OFX/Plugins/
+```
+
+**What is the same.** The projector and the print are not ported, they are linked: the
+shutter's light, the weave, the scratches, dust, hair, splices and cue timing, the dyes, the
+lamps and every control's law are the FFGL build's own C++ (`Model.cpp`, `Controls.cpp`,
+`Exposure.cpp`), with the same seed, so it is the same strip. The output pass is mirrored on
+the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
+`//= mirrored`). Same controls, same ranges, same defaults, same groups.
+
+**What differs, and why:**
+
+- **The projector runs on the timeline, not a clock.** OpenFX renders frames in any order,
+  alone and in parallel, so nothing accumulates: the film position is FPS × time and each
+  output frame's exposure is one frame of the timeline. Any frame renders the same alone or
+  in sequence. On the FFGL side this is the film position a host has when it renders every
+  frame in order from the start.
+- **The flicker and the hold beat against the timeline's rate**, not a display's. On a
+  24 fps timeline at FPS 24 every output frame shows exactly one projector frame: no beat, no
+  double images, no judder — the weave, the print and the marks remain. A 25, 30, 50 or 60 fps
+  timeline, or FPS 16 or 18, brings the machine's beat back.
+- **FPS does not animate.** The film position is FPS × time; a keyframed FPS would jump the
+  strip rather than slow it.
+- **The held pictures are fetched, not remembered.** The FFGL build keeps the two pictures it
+  captured at the last two pull-downs; this build fetches the same two frames of the clip
+  through temporal clip access: never more than 2 / FPS seconds back (one output frame more
+  when FPS is faster than the timeline) — at most 7 frames of a 60 fps timeline at FPS 16, 2
+  of a 24 fps one. Before the clip's first frame there is nothing to fetch, and the older
+  picture is the newer one, as on the FFGL build's first frame. They are held in float, where
+  the GPU holds half floats.
+- **Cue Dots is a keyframed toggle, not a button.** A press has no meaning on a timeline.
+  Keyframe it from off to on: the marks start on the projector frame in the gate at that frame,
+  for four frames, and come back 168 projector frames later, exactly where an FFGL press on
+  that frame puts them. The latest switch on wins; switching off does nothing. With no
+  keyframes it never fires.
+- **Colour is taken as display-referred**, as Resolume's is: the clip is decoded as sRGB into
+  linear light for the print and encoded back. In a scene-linear host (Nuke, Natron, a Resolve
+  node graph in linear) put it between colour-space conversions to an sRGB-like encoding.
+- There is no audio in either build, so nothing is dropped. The About group is a folded group
+  of link buttons, as in every Stoatworks OpenFX plugin.
+
 ## Status
 
 **v0.1.0, released 25 September 2026, and honestly early.** There is a
@@ -197,12 +251,39 @@ the default below); the deepest flicker filmed is 2 blades at 270°, for three s
 print's marks read only on bright clips: on the thin-lines-on-black loops there is little
 light for a scratch or a speck to take away.
 
+### The OpenFX build, offline (3 October 2026)
+
+Measured against the FFGL build on this Mac, never in an OpenFX application:
+
+- **Frame 0**, in `tools/verify.sh` (`tools/ofx_agree.py`: the stock `ofxprobe`, against
+  `gatest --pipe` on the same input): within one level in 255 at the defaults and three
+  other settings, 1.3–4.9% of pixels a level apart; Weave 0.25 against 0.26 is told apart
+  (4/255), so the comparison can fail.
+- **Over time** (`tools/ofx_sequence.py`, a test host with image sequences and keyframes, 60
+  fps): 120 frames at FPS 16 and at 18, at the defaults and with the marks turned up, and 700
+  frames of Cue Dots switched on against FFGL presses — one level in 255, on every frame where
+  the two clocks agree. At FPS 24 and 25 gatest's accumulated clock lands a few ulps past a
+  pull-down from frame 14 (11) and captures the next picture one display frame early; those
+  frames are reported apart (AGENTS.md has the trap).
+- **The one-level differences are the GPU's**: its half-float held pictures round toward
+  zero. With that emulated in the CPU copy the two builds agree on all but 0–2 pixels of
+  57 600.
+- **Deterministic in time**: any frame rendered alone is byte-identical to the same frame
+  rendered after all the ones before it, or in reverse order; with every fetch outside what it
+  declares refused, nothing changes.
+- **1920×1080 costs about 19 ms a frame** on the test host's 8 threads (M4 Max, arm64).
+- The Linux build loads on Rocky 8 in CI (`dlopen` and the two OFX entry points); the
+  Windows build is only known to compile.
+
 ### Not done
 
 - **Never loaded into Resolume on macOS.**
 - Seen only on Resolume's bundled demo clips, never on camera footage or film scans.
 - **No Stock control** (the spec imagined one; this release has Age only), no seed, no
-  display-shutter control for the double images, no OpenFX port, no factory presets.
+  display-shutter control for the double images, no factory presets.
+- **The OpenFX build has never been loaded into a real OpenFX host** — not Resolve, Vegas,
+  Nuke or Natron. What it has met is the fleet's test hosts (see above); on Linux only a
+  `dlopen` on Rocky 8 in CI, and on Windows only the compiler.
 
 ## Browser demo
 
@@ -235,6 +316,10 @@ The macOS bundle is universal (Apple Silicon and Intel). `cmake --install build`
 it into `~/Documents/Resolume Arena/Extra Effects`; for Avenue, pass
 `--prefix "$HOME/Documents/Resolume Avenue/Extra Effects"`.
 
+The same build makes `build/Gate.ofx.bundle`, the OpenFX plugin (`-DBUILD_OFX=OFF` to skip
+it). `-DGATE_BUILD_FFGL=OFF` builds the OpenFX plugin alone, with nothing but a compiler —
+no FFGL SDK, no GL, no GLEW — which is how the Linux build is made.
+
 ## Building and testing
 
 ```sh
@@ -243,6 +328,8 @@ tools/verify.sh                                   # everything, ~6 minutes
 ./build/gatest --flicker --size 320x180           # one check
 ./build/gatest --negative                         # every check can fail
 python3 tools/sweep.py                            # no dead controls
+python3 tools/ofx_agree.py --ofxprobe ../resolume-ofx-bridge/build/ofxprobe \
+    --dir build --gatest build/gatest             # the OpenFX build against the FFGL build
 ffmpeg -i clip.mov -vf fps=60 -f rawvideo -pix_fmt rgba - | ./build/gatest --pipe --size 1280x720 | ffplay -f rawvideo -pixel_format rgba -video_size 1280x720 -framerate 60 -
 ```
 

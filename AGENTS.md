@@ -13,6 +13,11 @@ A film projector's gate, shutter and print, as an FFGL 2.1 effect (`GA01`, shown
 `.bundle` and (in CI) a Windows `.dll`. MIT, at
 `github.com/stoatworks-labs/gate`. Released v0.1.0 on 2026-09-25.
 
+Since 2026-10-03 it is also an **OpenFX** effect (`com.stoatworks.gate`, shown as **Gate**
+under Stoatworks) for Resolve, Vegas, Nuke and Natron: a CPU render over the host's buffer,
+universal macOS, Win64 and Linux (glibc 2.28). Same projector, same print, same controls;
+see "The OpenFX build" below for what is shared, what is mirrored and what differs.
+
 Built 2026-09-25 in one session (tranche five, an idea Allan picked) from
 `specs/SPEC-gate.md` and the fleet's templates: filament (built the same day) for the
 plugin shape, the harness, `--pipe` with SIGPIPE ignored, the software pass and verify;
@@ -64,7 +69,8 @@ is out of the way. The print is a physical strip. So:
    splice's jump, Framing.
 5. **Print** (CPU). Scratches alive on any frame of the exposure (a birth/death process
    scanned back 480 frames), the dust on each frame, the hair, the cue flags. One row of
-   RGBA32F texels.
+   RGBA32F texels. Steps 4 and 5, and every constant step 6 is given, are
+   `exposure::Build` (Exposure.cpp), which the OpenFX build calls too.
 6. **Output** (GPU, to the host). Per projector frame: the held picture at its offset (a
    hand-written bilinear of `texelFetch`es), or the frame line, or the neighbour frame;
    density `−log2 T`, times the dyes' retention, times a splice's wash; emulsion
@@ -79,11 +85,16 @@ is out of the way. The print is a physical strip. So:
 | --- | --- |
 | `source/Model.{h,cpp}` | The projector and the print in double: the shutter, the segments, the weave law and offsets, scratches, dust, the hair, splices, cues, the dyes' retention, the lamps' colours, the `Perturb` bits and the `Probe`. Every constant with its reason. |
 | `source/Controls.{h,cpp}` | What a 0..1 slider means, with inverses; the option lists. |
+| `source/Exposure.{h,cpp}` | What one display frame's exposure shows short of its pictures: the controls in model units, the weights, offsets and flags per segment, the print-data row, the lamp, the dyes, every constant the output pass is given. Both builds call it. |
 | `source/Shaders.{h,cpp}` | Capture, resample and output. |
+| `source/Projection.{h,cpp}` | The output pass and the capture's decode in C++, for the OpenFX build: `kOutputBody` line for line, both marked `//= mirrored`. |
+| `source/ofx/GateOFX.cpp` | The OpenFX plugin: parameters, the timeline clock, the hold as temporal fetches, Cue Dots as a keyframed toggle, marshalling, threads. |
 | `source/PassBuffer.*` | tinsel's FFGLFBO with the leak fixed, wetplate's Swap. |
 | `source/Gate.{h,cpp}` | The plugin: parameters, the clock, the film position, the hold, the print data, the passes, the test hooks. |
 | `tools/gatest/` | The harness: renders, measures, negative controls, benchmarks, pipes, dumps shaders. |
 | `tools/sweep.py`, `tools/verify.sh` | No dead control; all of it. |
+| `tools/ofx_agree.py` | The OpenFX build's frame 0 against the FFGL build's, per pixel (verify.sh's openfx step). |
+| `tools/ofx_sequence.py` | The same over a moving sequence, frame by frame, with the clock tie simulated; needs the October 2026 test host. |
 
 ---
 
@@ -274,7 +285,9 @@ complement halves), `Normal`, `ShutterOpen`, `CumulativeOpen`, `Segments`, `Weav
 default from `Gate::Gate()`, and from `ProcessOpenGL` the clock (dt clamped to [0, 0.25 s],
 the nominal first frame, the exposure reused on a frame the clock did not move), the film
 position, the hold's bookkeeping, the resize resample, the print-data upload and every
-uniform. Change one of those here and change the page by hand. The page says so in its
+uniform. (Since the OpenFX port the print-data row and the uniforms' values are built in
+`Exposure.cpp` rather than inline in `ProcessOpenGL`; the arithmetic did not change, and
+`gatest --pipe` gave byte-identical output before and after the move.) Change one of those here and change the page by hand. The page says so in its
 banner and disclosure.
 
 **What differs, each said on the page:** the host's frame is the browser's
@@ -307,6 +320,144 @@ Deploy: `cf-run npx wrangler deploy` from the repo root, or push to main
 is at Cloudflare's limit of 100. Delete that record and the page goes dark while deploys
 stay green. Verify by content:
 `curl -s 'https://gate-demo.stoatworks-labs.com/?cb=1' | grep -o '<title>[^<]*'`.
+
+## The OpenFX build
+
+`source/ofx/GateOFX.cpp`, 2026-10-03, following the fleet's ports (macroblock for the shape,
+afterglow for temporal access, flenser for a model that is a pure function of time).
+
+**What is shared, not ported.** `Model.cpp`, `Controls.cpp` and `Exposure.cpp` are linked as
+the GL-free OBJECT library `gate_model`: the shutter's weights, the weave, the splices, the
+cue timing, the dust, the hair, the scratches, the dyes, the lamps, every control's law and
+every constant the output pass reads. The seed is `model::kPrintSeed` in both, so it is the
+same strip. **What is mirrored** is the output pass and the capture's sRGB decode:
+`Projection.cpp` is `kOutputBody` in C++, line for line, in float, in the shader's order,
+and both copies carry `//= mirrored`. The GLSL strings were not touched (the demo checks
+them character for character); the markers are C++ comments outside them.
+
+**The clock is the timeline.** OFX renders frames out of order, alone and concurrently, so
+nothing accumulates. Output frame t is on screen for one frame period and its exposure is
+that whole period (the FFGL decision "the exposure is the whole display period"), so
+
+    p1 = FPS x ( t + 1 ) / rate,    p0 = p1 - FPS / rate
+
+with `rate` the clip's frame rate. That is the FFGL build's film position when a host renders
+every frame in order at `rate` from frame 0 — with one difference only at 60: FFGL's first
+frame is worth `kNominalFrame` (1/60 s), so the two are the same number exactly when the
+clip is 60 fps, which is what every comparison below uses. FPS does not animate (`setAnimates
+(false)`): the position is FPS × time, so a keyframe would jump the strip.
+
+**The hold is recomputed, not remembered** (`holdAt`). The FFGL build captures the host's
+picture on the first display frame whose exposure reaches a new projector frame and keeps
+two: the newest frame's (`current`) and the frame held before it. OFX recomputes both from
+the timeline — the first output frame on t's lattice whose exposure reaches the frame
+(`Clock::captureTime`, with `latest` computed exactly as `model::Segments` numbers its last
+segment, so the two cannot disagree at an exposure that ends on a pull-down) — and fetches
+them through temporal clip access. Which segments read the older picture follows Gate.cpp's
+two cases exactly: on the frame a new picture is captured, the frames up to the one held
+before; on the frames after, up to latest − 1. "The frame above" (Framing up) is always the
+older picture. Before the clip's first frame the fetch fails and the older picture is the
+newer one, which is the FFGL build's first frame (`havePrevious` false). A simulation of both
+bookkeepings (gatest's clock, FFGL's held buffers, and `holdAt`) over 700 display frames at
+60 Hz agrees on every segment's picture at 16 and 18 fps; the exceptions at 24 and 25 are the
+trap below.
+
+**The window.** The older picture is the start of the projector frame before the newest, so
+it is less than 2 / FPS seconds back when FPS ≤ the clip's rate, plus at most one output
+frame when FPS is faster. Measured over 3000 frames: 7 frames back at FPS 16 on 60 fps
+(0.117 s), 14 on 120 fps, 2 on 24 fps, 1 at FPS 25 on 24 fps. `getFramesNeeded` declares
+exactly `[previousTime, t]` (the test host printed `[93, 100]` at t = 100, FPS 16, 60 fps),
+and a run with every undeclared fetch refused renders identically.
+
+**Cue Dots is a keyframed toggle.** The FFGL event stores the projector frame in the gate
+when it is pressed. OFX searches back from t for the most recent output frame on which the
+toggle reads on after reading off, and that frame's `latest` is the cue start — exactly what
+an FFGL press on that frame stores; a later switch replaces an earlier one, as a later press
+does. The search stops where no cue could still light a segment (172 projector frames before
+the oldest), and is skipped when the toggle has no keyframes (`getNumKeys() == 0`: a constant
+never switches). `model::IsCue` reads a negative start as "never", so a cue on a negative
+projector frame (a host with negative frame numbers) does not show.
+
+**Everything else.** Colour is taken as the FFGL build takes it: sRGB-encoded values,
+decoded to linear for the print and encoded back, so a scene-linear host wants a conversion
+either side. The clip is read as premultiplied (an unpremultiplied one is multiplied up, so a
+transparent pixel still prints black) and the output divided back if the output clip is
+straight. `getClipPreferences` sets `setOutputFrameVarying( true )`: on a still the weave,
+dust and shutter still move, and a host that thought otherwise would cache one frame. No
+tiles (the weave and Framing read away from the pixel). Filter and General contexts. The
+held pictures are float, where the GPU keeps half (next trap). The CPU pass runs on the
+host's multi-thread suite: one `MultiThread::Processor` decodes each held picture (8-bit
+through a 256-entry table of the same function), then an `ImageProcessor` shades rows.
+
+### ☠️ The GPU's half-float store rounds toward zero
+
+The first agreement run differed from the FFGL build by one level on 2–5% of pixels, and
+always in one direction: the OpenFX output brighter, never darker (2 879 channels against 0
+at the defaults). Emulating a round-to-nearest half store in the CPU copy barely moved it
+(2 818 pixels to 2 411); emulating **truncation** (the float's low 13 mantissa bits cleared)
+took it to 0, 1, 2 and 1 pixels of 57 600 at the four frame-0 settings verify.sh runs. So this
+Mac's RGBA16F render target behaves as round-toward-zero, and the FFGL build's held pictures
+sit up to 2^-11 below the input. The OpenFX build keeps float, deliberately: it is the more
+faithful number, and one level is the agreement bound. The emulation is not in the code.
+
+### ☠️ gatest's accumulated clock lands past a pull-down at 24 and 25 fps
+
+`gatest --pipe --fps 60` accumulates `dt × FPS`, and at FPS 24 the sum reaches
+6.0000000000000018 at display frame 14 where the exact position is 6: the FFGL build sees
+frame 6 begin one display frame early, captures display frame 14's input for it rather than
+15's, and keeps doing so at every fifth frame after (the AGENTS trap "every exposure must
+stay clear of a pull-down" is the same tie seen from the measuring side; the harness's own
+checks use `lead` to avoid it). The OpenFX clock is a product, not a sum, and lands exactly.
+So at FPS 24 the two builds agree on frames 0–13 and then differ by whole input frames
+(up to 250 levels) on the frames showing a projector frame captured at a tie; at 25 from
+frame 11. At 16 and 18 there is no such tie in 700 frames. `tools/ofx_sequence.py`
+simulates both bookkeepings and reports those frames separately rather than hiding them.
+
+### Measured (2026-10-03, M4 Max, macOS 26.4)
+
+Frame 0, `tools/ofx_agree.py` (stock ofxprobe from resolume-ofx-bridge: time 0, a 60 fps
+clip, its own ramp, 320×180; against `gatest --pipe --fps 60` on the same input), in
+verify.sh: the defaults worst 1/255, 2 818 of 57 600 pixels; 16 fps, one blade at 261°,
+carbon arc, framed up, every mark 1, Age 1, Mix 0.7: 1/255, 749; 25 fps, two blades at 180°,
+tungsten, framed down, Weave 0.8: 1/255, 1 544; framed 0.4 into the next picture: 1/255,
+1 889. The control, OFX Weave 0.25 against FFGL 0.26: 4/255, 6 004 pixels — the comparison
+can fail.
+
+Over time, `tools/ofx_sequence.py` with the test host built from resolume-ofx-bridge in
+October 2026 for the fleet's OpenFX ports (a 60 fps image sequence, temporal fetches,
+keyframes, a batch in one instance; not yet in the bridge's main, so verify.sh does not run
+it) against `gatest --pipe --fps 60` on the same 320×180 moving card, every frame the two
+bookkeepings agree on:
+
+| run | frames | worst | pixels differing |
+| --- | --- | --- | --- |
+| defaults at FPS 16 | 120 | 1/255 | 3.6% |
+| defaults at FPS 18 | 120 | 1/255 | 3.8% |
+| FPS 16, one blade at 261°, carbon arc, framed up, every mark 1, Age 1, Vignette 1, Mix 0.7 | 120 | 1/255 | 4.5% |
+| FPS 18, two blades at 180°, tungsten, framed down, Weave 0.8, Shrinkage 0.9, Dust and Scratches 1, Age 0.5 | 120 | 1/255 | 1.6% |
+| FPS 25, three blades at 99°, framed 0.4 down, Hair 1, Splices 1 | 50 of 60 | 1/255 | 1.9% |
+| defaults at FPS 24 | 14 of 40 | 1/255 | 3.8% |
+| Cue Dots switched on at frame 10 (and again at 300) against FFGL presses there, FPS 16, 160×90 | 700 | 1/255 | 3.7% |
+| control: OFX Weave 0.25 against FFGL 0.26, FPS 16 | 120 | 6/255 | 9.9%, every frame over 1 |
+
+The cue run shows the dots on frames 10–22 and again 637–652 (168 projector frames on), the
+second switch at 300 replacing the return, and a switch at 11 differing from one at 10 on
+exactly those frames. Frame N rendered alone in a fresh process is byte-identical to frame N
+after frames 0..N−1 in one instance (N = 0, 7, 50, 119); all 120 frames rendered in reverse
+order are identical to in order; with every fetch outside `getFramesNeeded` refused, 0
+refusals and 120 identical frames. 8-bit and float input give byte-identical output; the
+General context renders the same as Filter.
+
+**Cost:** 1920×1080 at the defaults on a 60 fps clip, 24 frames in one instance: 18.6–25.7
+ms a frame, median 19.0 (every mark at 1: median 19.9; a 24 fps clip: 19.3), on the test
+host's multi-thread suite, which hands out 8 threads (min of the cores, 8). arm64 Release
+build. About two hundred times the GPU's 0.09 ms; an offline host is for that.
+
+**Not verified:** any real OpenFX host. It has never been in Resolve, Vegas, Nuke or Natron;
+the Linux build is only `dlopen`ed on Rocky 8 in CI and Windows only compiled. The
+Transition and Generator contexts do not apply (one input, an effect).
+
+---
 
 ## Decisions taken without asking
 
@@ -371,6 +522,13 @@ stay green. Verify by content:
   button made it 19 parameters.
 - **Test hooks live in the shipped plugin** (`Perturb`, `Probe`, the scratch override,
   `LastWindowForTest`, `LastScratchesForTest`), inert in a host.
+- **The OpenFX build's choices** (2026-10-03): identifier `com.stoatworks.gate`, label Gate,
+  bundle `com.stoatworks.gate.ofx`, parameter script names `fps`, `blades`, `shutterAngle`,
+  `lamp`, `framing`, `weave`, `shrinkage`, `hair`, `scratches`, `dust`, `splices`, `cueDots`,
+  `age`, `vignette`, `mix` (permanent: saved projects name them). Same 0..1 sliders, option
+  indices and defaults as the FFGL build. The exposure is one output frame; FPS does not
+  animate; Cue Dots is a keyframed toggle whose last off-to-on switch fires; Blades and Lamp
+  do animate (each frame reads its own); the held pictures are float; no `isIdentity`.
 
 ---
 
@@ -412,6 +570,10 @@ at 320x180 and 1280x720 and on the software renderer.
 - **Render cost** (`gatest --bench`, best of three, `glFinish` both sides, the defaults, a
   shared GPU): 0.085 / 0.094 / 0.265 ms at 720p / 1080p / 4K (0.5 / 0.6 / 1.6% of a 60 fps
   frame), holding 14 / 32 / 127 MB of GPU state (two RGBA16F pictures).
+- **The OpenFX build** (2026-10-03): see "The OpenFX build" above for the numbers. It agrees
+  with this build to one level in 255 wherever their clocks agree; it is deterministic in
+  time; its temporal window is what it declares; `tools/verify.sh` (now with the openfx step)
+  passes on a fresh universal build; it costs about 19 ms a 1080p frame on 8 threads.
 
 ### Assumed, or not done
 
@@ -437,7 +599,12 @@ at 320x180 and 1280x720 and on the software renderer.
   footage, never on film scans.
 - **The clock-unit voting** is readout's, which has met Arena; this plugin has not.
 - **Not verified at 4K**, only benchmarked there.
-- **No OpenFX port, factory presets, seed or Stock control.** There is a user guide
+- **The OpenFX build has never been in a real OpenFX host** — not Resolve, Vegas, Nuke or
+  Natron. Only the stock ofxprobe, a scratch-space test host and, on Linux, a `dlopen` on
+  Rocky 8 in CI. The Windows build is only known to compile. Its colour handling assumes
+  display-referred input, as the FFGL build does; nothing has checked how a host's colour
+  management feeds it.
+- **No factory presets, seed or Stock control.** There is a user guide
   (`docs/USER-GUIDE.md`, the only copy anyone edits; the PDF and the site page are
   generated by the website's `build_guides.py`).
 - **Filming the release video** (`stoatworks-backend/video/projects/gate/`, 60 fps):
