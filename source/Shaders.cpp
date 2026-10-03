@@ -26,6 +26,8 @@ void main()
 // capture: the host's picture, decoded to linear light. texelFetch, so an
 // interior pixel is an exact copy of the host's (before the decode).
 //---------------------------------------------------------------------------
+//= mirrored: decodeSrgb is Projection.cpp's DecodeSrgb, which the OpenFX build
+//  runs on the CPU. Edit both.
 const char* const kCaptureBody = R"(
 uniform sampler2D Source;
 
@@ -65,6 +67,10 @@ void main()
 //---------------------------------------------------------------------------
 // output: the gate, the print, the shutter's sum, the lamp and the lens.
 //---------------------------------------------------------------------------
+//= mirrored: every function and the whole of main() below is Projection.cpp,
+//  line for line, in float and in this order -- the OpenFX build's CPU copy of
+//  this pass (Shade, tapHeld, fetchHeld, segmentLine, EncodeSrgb). Edit both.
+//  The uniforms come from Exposure.cpp, which both builds link.
 const char* const kOutputBody = R"(
 uniform sampler2D Held0;
 uniform sampler2D Held1;

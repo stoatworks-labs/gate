@@ -222,6 +222,13 @@ void Retention( double age, int perturb, double rgb[ 3 ] );
 void LampRgb( double kelvin, double rgb[ 3 ] );
 
 //---------------------------------------------------------------------------
+// The print's seed. One print for every instance of either build: the FFGL
+// plugin starts from it (a resize's negative control re-hashes it) and the
+// OpenFX plugin uses it as it is, so the two show the same strip.
+//---------------------------------------------------------------------------
+constexpr uint32_t kPrintSeed = 0x6a7e5eedu;
+
+//---------------------------------------------------------------------------
 // Test hooks. Always 0 in the plugin.
 //---------------------------------------------------------------------------
 

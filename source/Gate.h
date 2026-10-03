@@ -130,7 +130,7 @@ private:
 	double filmPosition  = 0.0; ///< projector frames, at the end of the last exposure
 	double lastExposure  = gate::model::kNominalFrame;///< seconds, for a frame the clock did not move
 	double windowP0 = 0.0, windowP1 = 0.0;
-	uint32_t seed        = 0x6a7e5eedu;
+	uint32_t seed        = gate::model::kPrintSeed;
 	int64_t cueStart     = -1;
 	bool cueHeld         = false;
 	std::vector< gate::model::Scratch > lastScratches;

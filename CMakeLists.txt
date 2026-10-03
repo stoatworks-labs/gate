@@ -42,6 +42,39 @@ endif()
 
 option(GATE_BUILD_TOOLS "Build the offline render and measurement harness" ON)
 
+# The FFGL plugin, the FFGL SDK submodule and GLEW are one dependency group, and
+# the OpenFX plugin belongs to none of it. Turning this OFF builds the OFX plugin
+# alone, with no GL loader anywhere in the configure -- which is what the Linux
+# job does, because the FFGL SDK has no Linux path and its own
+# find_package(GLEW REQUIRED) would otherwise fail before a line is compiled.
+option(GATE_BUILD_FFGL "Build the FFGL plugin (needs the FFGL SDK and, off macOS, GLEW)" ON)
+
+# ---------------------------------------------------------------------------
+# The parts with no GL in them at all: the projector and the print in double
+# (Model), what a control means (Controls), and what one display frame's
+# exposure shows short of its pictures (Exposure). Both plugins link these,
+# so the weave, the scratches, the dust, the hair, the splices, the cue flags
+# and every constant the output pass is given are ONE piece of C++; only the
+# per-pixel output pass is written twice (GLSL in Shaders.cpp, C++ in
+# Projection.cpp).
+#
+# A separate OBJECT library from gate_core because only the FFGL build has a
+# GL context, and the Linux OFX job has no GL loader configured at all.
+# ---------------------------------------------------------------------------
+add_library(gate_model OBJECT
+    source/Model.h
+    source/Model.cpp
+    source/Controls.h
+    source/Controls.cpp
+    source/Exposure.h
+    source/Exposure.cpp
+    source/Shaders.h
+)
+target_include_directories(gate_model PUBLIC source)
+set_target_properties(gate_model PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(GATE_BUILD_FFGL)
+
 # ---------------------------------------------------------------------------
 # The Resolume FFGL SDK, as a git submodule pinned to b1afaf9 -- the rev the
 # rest of the fleet pins.
@@ -70,10 +103,6 @@ add_library(gate_core OBJECT
     source/StoatworksAboutParams.h
     source/Diag.h
     source/Diag.cpp
-    source/Model.h
-    source/Model.cpp
-    source/Controls.h
-    source/Controls.cpp
     source/PassBuffer.h
     source/PassBuffer.cpp
     source/Shaders.h
@@ -83,7 +112,11 @@ add_library(gate_core OBJECT
 )
 
 target_include_directories(gate_core PUBLIC source)
-target_link_libraries(gate_core PUBLIC ffgl::sdk)
+# gate_model is named here for its include paths and again on every final
+# target for its objects: an OBJECT library's objects do NOT travel through a
+# second OBJECT library, and the failure is a pile of undefined symbols at the
+# very last link of an otherwise clean build.
+target_link_libraries(gate_core PUBLIC ffgl::sdk gate_model)
 target_compile_definitions(gate_core PUBLIC GATE_VERSION="${PROJECT_VERSION}")
 set_target_properties(gate_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -106,7 +139,7 @@ endif()
 # ---------------------------------------------------------------------------
 function(gate_add_plugin target entry bundle_name identifier)
     add_library(${target} MODULE ${entry})
-    target_link_libraries(${target} PRIVATE gate_core)
+    target_link_libraries(${target} PRIVATE gate_core gate_model)
 
     if(APPLE)
         set_target_properties(${target} PROPERTIES
@@ -154,8 +187,90 @@ install(TARGETS Gate
 # ---------------------------------------------------------------------------
 if(GATE_BUILD_TOOLS AND APPLE)
     add_executable(gatest tools/gatest/main.cpp)
-    target_link_libraries(gatest PRIVATE gate_core z
+    target_link_libraries(gatest PRIVATE gate_core gate_model z
         "-framework OpenGL"
         "-framework AppKit"
     )
+endif()
+
+endif()  # GATE_BUILD_FFGL
+
+# ---------------------------------------------------------------------------
+# The OpenFX build, for Resolve/Nuke/Natron/Vegas. A CPU render against the
+# vendored OFX SDK subset under external/openfx (C headers + the official C++
+# Support library, BSD-3). gate_model links straight in, so the projector,
+# the print and the parameter laws are the same code as the FFGL build; only
+# the output pass's per-pixel arithmetic is mirrored, in Projection.cpp. No
+# FFGL SDK and no GL header reaches this target: the Linux build has no GL.
+# ---------------------------------------------------------------------------
+option(BUILD_OFX "Build the OpenFX plugin" ON)
+
+if(BUILD_OFX)
+    set(OFX_SDK "${CMAKE_CURRENT_SOURCE_DIR}/external/openfx")
+
+    add_library(GateOFX MODULE
+        source/ofx/GateOFX.cpp
+        source/Projection.h
+        source/Projection.cpp
+        ${OFX_SDK}/Support/Library/ofxsCore.cpp
+        ${OFX_SDK}/Support/Library/ofxsImageEffect.cpp
+        ${OFX_SDK}/Support/Library/ofxsInteract.cpp
+        ${OFX_SDK}/Support/Library/ofxsLog.cpp
+        ${OFX_SDK}/Support/Library/ofxsMultiThread.cpp
+        ${OFX_SDK}/Support/Library/ofxsParams.cpp
+        ${OFX_SDK}/Support/Library/ofxsProperty.cpp
+        ${OFX_SDK}/Support/Library/ofxsPropertyValidation.cpp
+    )
+    # PRIVATE on an OBJECT library gives both the objects and the usage
+    # requirements. `$<TARGET_OBJECTS:gate_model>` would give the objects
+    # alone -- no include directories -- and the failure is platform-specific
+    # enough to cost a day.
+    target_link_libraries(GateOFX PRIVATE gate_model)
+    target_include_directories(GateOFX PRIVATE
+        source
+        "${OFX_SDK}/include"
+        "${OFX_SDK}/Support/include"
+    )
+    target_compile_definitions(GateOFX PRIVATE
+        GATE_VERSION="${PROJECT_VERSION}"
+        PLUGIN_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+        PLUGIN_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    )
+    set_target_properties(GateOFX PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    # Threads, explicitly. The OFX Support library's multi-thread suite calls
+    # pthread_create, and on Rocky 8 -- glibc 2.28, the floor Resolve supports --
+    # that still lives in libpthread; libpthread was only folded into libc in
+    # glibc 2.34. Leave it out and the plugin compiles, links, passes a symbol
+    # check and a glibc-version check, and then fails at dlopen with "undefined
+    # symbol: pthread_create". macOS and Windows never show it.
+    find_package(Threads REQUIRED)
+    target_link_libraries(GateOFX PRIVATE Threads::Threads)
+
+    set(OFX_BUNDLE_DIR "${CMAKE_BINARY_DIR}/Gate.ofx.bundle")
+    set_target_properties(GateOFX PROPERTIES
+        PREFIX ""
+        SUFFIX ".ofx"
+        OUTPUT_NAME "Gate"
+        LIBRARY_OUTPUT_DIRECTORY "${OFX_BUNDLE_DIR}/Contents/MacOS"
+    )
+    if(APPLE)
+        set(OFX_BUNDLE_IDENTIFIER "com.stoatworks.gate.ofx")
+        configure_file(cmake/InfoOFX.plist.in
+            "${OFX_BUNDLE_DIR}/Contents/Info.plist" @ONLY)
+    elseif(WIN32)
+        set_target_properties(GateOFX PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY "${OFX_BUNDLE_DIR}/Contents/Win64"
+            RUNTIME_OUTPUT_DIRECTORY "${OFX_BUNDLE_DIR}/Contents/Win64"
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE "${OFX_BUNDLE_DIR}/Contents/Win64"
+            RUNTIME_OUTPUT_DIRECTORY_RELEASE "${OFX_BUNDLE_DIR}/Contents/Win64"
+            # MSVC's .exp/.lib for this target; its default directory collides
+            # with the FFGL target's, which shares the output base name, and a
+            # parallel build then races on the file (LNK1104).
+            ARCHIVE_OUTPUT_DIRECTORY "${OFX_BUNDLE_DIR}/importlib"
+            ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${OFX_BUNDLE_DIR}/importlib")
+    else()
+        set_target_properties(GateOFX PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY "${OFX_BUNDLE_DIR}/Contents/Linux-x86-64")
+    endif()
 endif()

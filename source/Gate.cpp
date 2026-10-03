@@ -2,6 +2,7 @@
 
 #include "Controls.h"
 #include "Diag.h"
+#include "Exposure.h"
 #include "Model.h"
 #include "Shaders.h"
 
@@ -47,7 +48,6 @@ std::string glStringOrUnknown( GLenum name )
 	return value ? reinterpret_cast< const char* >( value ) : "unknown";
 }
 
-constexpr double kLog2Ten = 3.32192809488736234787;
 } // namespace
 
 //---------------------------------------------------------------------------
@@ -269,21 +269,26 @@ FFResult Gate::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 	const double aspect    = outWidth / outHeight;
 
 	//---------------------------------------------------------------------
-	// What the controls say.
+	// What the controls say. The same conversion the OpenFX build makes
+	// (Exposure.cpp), from the same 0..1 host space.
 	//---------------------------------------------------------------------
-	const double fps        = controls::Fps( controls::OptionIndex( params[ PT_FPS ], controls::kFpsCount ) );
-	const int blades        = controls::Blades( controls::OptionIndex( params[ PT_BLADES ], controls::kBladesCount ) );
-	const double open       = controls::ShutterOpen( params[ PT_SHUTTER ] );
-	const int lamp          = controls::OptionIndex( params[ PT_LAMP ], controls::kLampCount );
-	const double framing    = controls::FramingHeights( params[ PT_FRAMING ] );
-	const WeaveLaw law      = Weave( controls::Amount( params[ PT_WEAVE ] ), controls::Amount( params[ PT_SHRINKAGE ] ), perturb );
-	const double hair       = controls::Amount( params[ PT_HAIR ] );
-	const double scratches  = controls::Amount( params[ PT_SCRATCHES ] );
-	const double dust       = controls::Amount( params[ PT_DUST ] );
-	const double splices    = controls::SplicesPerMinute( params[ PT_SPLICES ] );
-	const double age        = controls::Amount( params[ PT_AGE ] );
-	const double vignette   = controls::VignetteDegrees( params[ PT_VIGNETTE ] );
-	const float mixAmount   = controls::Amount( params[ PT_MIX ] );
+	exposure::HostValues host;
+	host.fps       = params[ PT_FPS ];
+	host.blades    = params[ PT_BLADES ];
+	host.shutter   = params[ PT_SHUTTER ];
+	host.lamp      = params[ PT_LAMP ];
+	host.framing   = params[ PT_FRAMING ];
+	host.weave     = params[ PT_WEAVE ];
+	host.shrinkage = params[ PT_SHRINKAGE ];
+	host.hair      = params[ PT_HAIR ];
+	host.scratches = params[ PT_SCRATCHES ];
+	host.dust      = params[ PT_DUST ];
+	host.splices   = params[ PT_SPLICES ];
+	host.age       = params[ PT_AGE ];
+	host.vignette  = params[ PT_VIGNETTE ];
+	host.mix       = params[ PT_MIX ];
+	const exposure::Settings settings = exposure::FromHost( host, perturb );
+	const double fps                  = settings.fps;
 
 	//---------------------------------------------------------------------
 	// The clock and the film. Frame-relative: the film position is held in
@@ -313,7 +318,7 @@ FFResult Gate::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 	windowP1        = p1;
 
 	Segment segments[ kMaxSegments ];
-	const int count      = Segments( p0, p1, blades, open, ( perturb & kPerturbInstant ) != 0, segments );
+	const int count      = Segments( p0, p1, settings.blades, settings.open, ( perturb & kPerturbInstant ) != 0, segments );
 	const int64_t latest = segments[ count - 1 ].frame;
 
 	//The cue marks are on the print from the frame in the gate when fired.
@@ -386,98 +391,26 @@ FFResult Gate::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 		previousFrame = heldFrame - 1;//any earlier frame is in held[ 1 - current ]
 
 	//---------------------------------------------------------------------
-	// The print, for every projector frame this display frame shows.
+	// The print, for every projector frame this display frame shows
+	// (Exposure.cpp, shared with the OpenFX build), and which held picture
+	// each frame and the frame above it on the strip are in.
 	//---------------------------------------------------------------------
-	float weights[ kMaxSegments ]   = {};
-	float offsets[ 2 * kMaxSegments ] = {};
-	int pictures[ kMaxSegments ]    = {};
-	int above[ kMaxSegments ]       = {};
-	int flags[ kMaxSegments ]       = {};
-	std::vector< float > data( static_cast< size_t >( shaders::kPrintDataWidth ) * 4, 0.0f );
-	int particleCount = 0;
-	int hairFrom      = -1;
-	int hairMask      = 0;
-	Hair hairShape;
-	for( int i = count - 1; i >= 0; --i )
+	exposure::Frame frame;
+	exposure::Build( seed, settings, segments, count, aspect, cueStart, scratchOverride, frame );
+	lastScratches = frame.scratches;
+
+	int pictures[ kMaxSegments ] = {};
+	int above[ kMaxSegments ]    = {};
+	for( int i = 0; i < count; ++i )
 	{
-		const int64_t k = segments[ i ].frame;
-		double x = 0.0, y = 0.0;
-		WeaveOffset( seed, k, law, x, y );
-		if( IsSplice( seed, k, splices, fps ) )
-		{
-			double jx = 0.0, jy = 0.0;
-			SpliceJump( seed, k, jx, jy );
-			x += jx;
-			y += jy;
-			flags[ i ] |= 1;
-		}
-		if( IsCue( cueStart, k ) )
-			flags[ i ] |= 2;
-		weights[ i ]         = static_cast< float >( segments[ i ].weight );
-		offsets[ 2 * i ]     = static_cast< float >( x );
-		offsets[ 2 * i + 1 ] = static_cast< float >( y );
-		const bool older     = !noHold && havePrevious && k <= previousFrame;
-		pictures[ i ]        = older ? 1 - current : current;
-		above[ i ]           = havePrevious && !noHold ? 1 - current : current;
-
-		for( const Particle& p : Dust( seed, k, dust, aspect ) )
-		{
-			if( particleCount >= kMaxParticles )
-				break;
-			float* t0 = data.data() + 8 * particleCount;
-			t0[ 0 ]   = static_cast< float >( p.x );
-			t0[ 1 ]   = static_cast< float >( p.y );
-			t0[ 2 ]   = static_cast< float >( p.a );
-			t0[ 3 ]   = static_cast< float >( p.b );
-			t0[ 4 ]   = static_cast< float >( std::cos( p.angle ) );
-			t0[ 5 ]   = static_cast< float >( std::sin( p.angle ) );
-			t0[ 6 ]   = static_cast< float >( p.strength );
-			t0[ 7 ]   = static_cast< float >( i + 8 * p.fibre );
-			++particleCount;
-		}
-
-		const Hair h = HairAt( seed, k, hair, aspect );
-		if( h.present )
-		{
-			hairMask |= 1 << i;
-			if( hairFrom < 0 )
-			{
-				hairFrom  = i;
-				hairShape = h;
-			}
-		}
+		const bool older = !noHold && havePrevious && segments[ i ].frame <= previousFrame;
+		pictures[ i ]    = older ? 1 - current : current;
+		above[ i ]       = havePrevious && !noHold ? 1 - current : current;
 	}
-
-	lastScratches = scratchOverride.empty() ? Scratches( seed, segments[ 0 ].frame, latest, scratches, aspect ) : scratchOverride;
-	int scratchCount = 0;
-	for( const Scratch& s : lastScratches )
-	{
-		if( scratchCount >= kMaxScratches )
-			break;
-		int mask = 0;
-		for( int i = 0; i < count; ++i )
-			if( !scratchOverride.empty() || ( segments[ i ].frame >= s.born && segments[ i ].frame < s.dies ) )
-				mask |= 1 << i;
-		float* t = data.data() + 4 * ( shaders::kPrintScratchFirst + 2 * scratchCount );
-		t[ 0 ]   = static_cast< float >( s.left );
-		t[ 1 ]   = static_cast< float >( s.right );
-		t[ 2 ]   = static_cast< float >( s.strength );
-		t[ 3 ]   = static_cast< float >( s.side );
-		t[ 4 ]   = static_cast< float >( mask );
-		++scratchCount;
-	}
-
-	if( hairShape.present )
-		for( int i = 0; i < kHairPoints; ++i )
-		{
-			float* t = data.data() + 4 * ( shaders::kPrintHairFirst + i );
-			t[ 0 ]   = static_cast< float >( hairShape.x[ i ] );
-			t[ 1 ]   = static_cast< float >( hairShape.y[ i ] );
-		}
 
 	{
 		Scoped2DTextureBinding texture( printTexture );
-		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, shaders::kPrintDataWidth, 1, GL_RGBA, GL_FLOAT, data.data() );
+		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, shaders::kPrintDataWidth, 1, GL_RGBA, GL_FLOAT, frame.data.data() );
 	}
 
 	//---------------------------------------------------------------------
@@ -512,9 +445,6 @@ FFResult Gate::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 		ScopedSamplerActivation sampler3( 3 );
 		Scoped2DTextureBinding printBinding( printTexture );
 
-		double lampRgb[ 3 ], retention[ 3 ];
-		LampRgb( controls::LampKelvin( lamp ), lampRgb );
-		Retention( age, perturb, retention );
 		const FFGLTexCoords maxCoords = GetMaxGLTexCoords( input );
 
 		outputShader.Set( "Held0", 0 );
@@ -525,29 +455,29 @@ FFResult Gate::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 		outputShader.Set( "MaxUV", maxCoords.s, maxCoords.t );
 		outputShader.Set( "OutSize", static_cast< float >( outWidth ), static_cast< float >( outHeight ) );
 		outputShader.Set( "SegCount", count );
-		glUniform1fv( outputShader.FindUniform( "SegWeight" ), count, weights );
-		glUniform2fv( outputShader.FindUniform( "SegOffset" ), count, offsets );
+		glUniform1fv( outputShader.FindUniform( "SegWeight" ), count, frame.weights );
+		glUniform2fv( outputShader.FindUniform( "SegOffset" ), count, frame.offsets );
 		glUniform1iv( outputShader.FindUniform( "SegPicture" ), count, pictures );
 		glUniform1iv( outputShader.FindUniform( "SegAbove" ), count, above );
-		glUniform1iv( outputShader.FindUniform( "SegFlags" ), count, flags );
-		outputShader.Set( "Framing", static_cast< float >( framing ) );
-		outputShader.Set( "Pitch", static_cast< float >( kPitch ) );
-		outputShader.Set( "Margin", static_cast< float >( kMargin ) );
-		outputShader.Set( "MaxDensity", static_cast< float >( kMaxDensity * kLog2Ten ) );
-		outputShader.Set( "Retention", static_cast< float >( retention[ 0 ] ), static_cast< float >( retention[ 1 ] ), static_cast< float >( retention[ 2 ] ) );
-		outputShader.Set( "SpliceWash", kSpliceWash );
-		outputShader.Set( "ParticleCount", particleCount );
-		outputShader.Set( "ScratchCount", scratchCount );
-		outputShader.Set( "HairPoints", hairShape.present ? kHairPoints : 0 );
-		outputShader.Set( "HairMask", hairMask );
-		outputShader.Set( "HairHalfWidth", static_cast< float >( hairShape.halfWidth ) );
-		outputShader.Set( "HairOpacity", static_cast< float >( hairShape.opacity ) );
-		outputShader.Set( "CueCentre", static_cast< float >( aspect - 0.12 ), 0.11f );
-		outputShader.Set( "CueRadius", 0.028f );
-		outputShader.Set( "Lamp", static_cast< float >( lampRgb[ 0 ] ), static_cast< float >( lampRgb[ 1 ] ), static_cast< float >( lampRgb[ 2 ] ) );
-		outputShader.Set( "VignetteTan", static_cast< float >( std::tan( vignette * kPi / 180.0 ) ) );
-		outputShader.Set( "Aspect", static_cast< float >( aspect ) );
-		outputShader.Set( "MixAmount", mixAmount );
+		glUniform1iv( outputShader.FindUniform( "SegFlags" ), count, frame.flags );
+		outputShader.Set( "Framing", frame.framing );
+		outputShader.Set( "Pitch", frame.pitch );
+		outputShader.Set( "Margin", frame.margin );
+		outputShader.Set( "MaxDensity", frame.maxDensity );
+		outputShader.Set( "Retention", frame.retention[ 0 ], frame.retention[ 1 ], frame.retention[ 2 ] );
+		outputShader.Set( "SpliceWash", frame.spliceWash );
+		outputShader.Set( "ParticleCount", frame.particleCount );
+		outputShader.Set( "ScratchCount", frame.scratchCount );
+		outputShader.Set( "HairPoints", frame.hairShape.present ? kHairPoints : 0 );
+		outputShader.Set( "HairMask", frame.hairMask );
+		outputShader.Set( "HairHalfWidth", frame.hairHalfWidth );
+		outputShader.Set( "HairOpacity", frame.hairOpacity );
+		outputShader.Set( "CueCentre", frame.cueCentre[ 0 ], frame.cueCentre[ 1 ] );
+		outputShader.Set( "CueRadius", frame.cueRadius );
+		outputShader.Set( "Lamp", frame.lamp[ 0 ], frame.lamp[ 1 ], frame.lamp[ 2 ] );
+		outputShader.Set( "VignetteTan", frame.vignetteTan );
+		outputShader.Set( "Aspect", frame.aspect );
+		outputShader.Set( "MixAmount", frame.mix );
 		outputShader.Set( "Probe", probe );
 		outputShader.Set( "Perturb", perturb );
 		quad.Draw();
