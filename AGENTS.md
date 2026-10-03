@@ -342,10 +342,10 @@ that whole period (the FFGL decision "the exposure is the whole display period")
     p1 = FPS x ( t + 1 ) / rate,    p0 = p1 - FPS / rate
 
 with `rate` the clip's frame rate. That is the FFGL build's film position when a host renders
-every frame in order at `rate` from frame 0 — with one difference only at 60: FFGL's first
-frame is worth `kNominalFrame` (1/60 s), so the two are the same number exactly when the
-clip is 60 fps, which is what every comparison below uses. FPS does not animate (`setAnimates
-(false)`): the position is FPS × time, so a keyframe would jump the strip.
+every frame in order at `rate` from frame 0, except that the FFGL build's first frame is
+always worth `kNominalFrame` (1/60 s): the two are the same number exactly on a 60 fps clip,
+which is what every comparison below uses. FPS does not animate (`setAnimates( false )`):
+the position is FPS × time, so a keyframe would jump the strip.
 
 **The hold is recomputed, not remembered** (`holdAt`). The FFGL build captures the host's
 picture on the first display frame whose exposure reaches a new projector frame and keeps
