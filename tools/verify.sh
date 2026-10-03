@@ -53,6 +53,15 @@
 #   oxbow         a real FFGL host loads the bundle and reports the name, id
 #                 and type it sees -- the name field is not null-terminated
 #                 and a host truncates silently past 16 characters.
+#   openfx        the OpenFX bundle: CFBundleExecutable names the binary on
+#                 disk, it exports OfxGetPlugin, it is universal, it ad-hoc
+#                 signs (the release job's command), no installed plugin
+#                 shadows its identifier, ofxprobe renders it -- and on
+#                 ofxprobe's own input its frame 0 agrees with the FFGL
+#                 build's frame 0 (gatest --pipe) to one 8-bit level, at the
+#                 defaults and three other settings, while two settings that
+#                 differ by one notch of Weave are told apart
+#                 (tools/ofx_agree.py).
 #
 set -uo pipefail
 
@@ -358,6 +367,102 @@ if [ "$(uname)" = "Darwin" ] && [ -d "$BUNDLE" ]; then
 		esac
 	else
 		printf '   skipped: oxbow not built at %s\n' "$OXBOW"
+	fi
+fi
+
+#---------------------------------------------------------------------------
+# The OpenFX bundle.
+#
+# cmake/InfoOFX.plist.in is copied from repo to repo, and the version it is
+# usually copied from had the PREVIOUS plugin's name hardcoded into
+# CFBundleExecutable. That does not fail the build: the bundle assembles, lipo
+# and nm both pass, ofxprobe loads it and renders a correct frame. It fails at
+# RELEASE time, in codesign, with "code object is not signed at all" -- so the
+# plist is checked against the binary on disk and the release job's codesign
+# is run against a copy.
+#
+# ofxprobe also scans /Library/OFX/Plugins, and the FIRST plugin with an
+# identifier wins: an installed Gate there would be what got measured. Checked
+# before anything is rendered.
+#---------------------------------------------------------------------------
+OFX="$BUILD/Gate.ofx.bundle"
+if [ "$(uname)" = "Darwin" ]; then
+	step "openfx"
+	if [ ! -d "$OFX" ]; then
+		fail "no OpenFX bundle at $OFX (configured with -DBUILD_OFX=OFF?)"
+	else
+		exe=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$OFX/Contents/Info.plist" 2>/dev/null)
+		ident=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$OFX/Contents/Info.plist" 2>/dev/null)
+		OFXBIN="$OFX/Contents/MacOS/$exe"
+		if [ -n "$exe" ] && [ -f "$OFXBIN" ]; then
+			pass "CFBundleExecutable ($exe) is on disk"
+		else
+			fail "CFBundleExecutable is '$exe' but no such binary exists -- codesign will fail after the tag"
+		fi
+		if [ "$ident" = "com.stoatworks.gate.ofx" ]; then
+			pass "CFBundleIdentifier is $ident"
+		else
+			fail "CFBundleIdentifier is '$ident'"
+		fi
+		syms=$(nm -gU "$OFXBIN" 2>/dev/null)
+		case "$syms" in
+			*_OfxGetPlugin*) pass "exports OfxGetPlugin" ;;
+			*) fail "no OfxGetPlugin -- no OFX host will load it" ;;
+		esac
+		archs=$(lipo -archs "$OFXBIN" 2>/dev/null)
+		case "$archs" in *arm64*x86_64*|*x86_64*arm64*) pass "universal ($archs)" ;; *) fail "not universal (got: $archs)" ;; esac
+		tmp=$(mktemp -d)
+		cp -R "$OFX" "$tmp/"
+		if codesign --force --sign - --timestamp=none "$tmp/Gate.ofx.bundle" >/dev/null 2>&1; then
+			pass "ad-hoc signs (the command the release job runs)"
+		else
+			fail "ad-hoc signing the OpenFX bundle failed"
+		fi
+		rm -rf "$tmp"
+
+		OFXPROBE="${OFXPROBE:-../resolume-ofx-bridge/build/ofxprobe}"
+		[ -x "$OFXPROBE" ] || OFXPROBE="$HOME/Projects/resolume/resolume-ofx-bridge/build/ofxprobe"
+		if [ ! -x "$OFXPROBE" ]; then
+			printf '   skipped: ofxprobe not built at %s -- the OpenFX render is unchecked\n' "$OFXPROBE"
+		else
+			installed=$("$OFXPROBE" --json 2>/dev/null)
+			case "$installed" in
+				*'"com.stoatworks.gate"'*) fail "an installed plugin already has the identifier com.stoatworks.gate -- ofxprobe would measure that, not this build" ;;
+				*) pass "no installed plugin shadows com.stoatworks.gate" ;;
+			esac
+			out=$("$OFXPROBE" --dir "$BUILD" --render com.stoatworks.gate --size 320x180 2>&1)
+			if ! printf '%s\n' "$out" | grep -q "rendered"; then
+				fail "the OpenFX bundle does not render"
+				printf '%s\n' "$out" | sed 's/^/      /'
+			elif printf '%s\n' "$out" | grep -qE "^ *0 of [0-9]+ bytes differ"; then
+				fail "the OpenFX bundle renders its input unchanged"
+			else
+				pass "ofxprobe renders it ($(printf '%s\n' "$out" | grep -oE '[0-9]+ of [0-9]+ bytes differ'))"
+			fi
+
+			agree() {  # agree LABEL [--control] PAIRS...
+				local label=$1; shift
+				local result
+				if result=$(python3 tools/ofx_agree.py --ofxprobe "$OFXPROBE" --dir "$BUILD" --gatest "$GATEST" "$@" 2>&1); then
+					pass "$label: $( printf '%s\n' "$result" | tail -1 )"
+				else
+					fail "$label: $( printf '%s\n' "$result" | tail -1 )"
+				fi
+			}
+			agree "frame 0 agrees with the FFGL build at the defaults"
+			agree "frame 0 agrees: 16 fps, 1 blade at 261 deg, carbon arc, framed up, every mark 1, Age 1, Mix 0.7" \
+				"fps=0|FPS=0" "blades=0|Blades=0" "shutterAngle=0.8|Shutter Angle=0.8" "lamp=0|Lamp=0" \
+				"framing=0.3|Framing=0.3" "weave=1|Weave=1" "shrinkage=1|Shrinkage=1" "hair=1|Hair=1" \
+				"scratches=1|Scratches=1" "dust=1|Dust=1" "splices=1|Splices=1" "age=1|Age=1" \
+				"vignette=1|Vignette=1" "mix=0.7|Mix=0.7"
+			agree "frame 0 agrees: 25 fps, 2 blades at 180, tungsten, framed down, weave 0.8, Age 0.5" \
+				"fps=3|FPS=3" "blades=1|Blades=1" "shutterAngle=0.5|Shutter Angle=0.5" "lamp=2|Lamp=2" \
+				"framing=0.62|Framing=0.62" "weave=0.8|Weave=0.8" "shrinkage=0.9|Shrinkage=0.9" \
+				"scratches=1|Scratches=1" "dust=1|Dust=1" "age=0.5|Age=0.5" "vignette=1|Vignette=1"
+			agree "frame 0 agrees: framed 0.4 down, past the frame line into the next picture" \
+				"framing=0.9|Framing=0.9" "age=0.3|Age=0.3"
+			agree "the comparison can fail: Weave 0.25 against 0.26 is told apart" --control "weave=0.25|Weave=0.26"
+		fi
 	fi
 fi
 

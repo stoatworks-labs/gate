@@ -3,7 +3,9 @@ name: ci
 # Both platforms on every push and pull request, so a Dependabot bump has a
 # status check to gate on and a GLEW-shaped break -- which macOS is
 # structurally blind to, because macOS never links GLEW -- is caught before a
-# tag. There is no Linux job: the CMakeLists branches on APPLE and WIN32.
+# tag. Both jobs build the OpenFX plugin too (BUILD_OFX is ON by default). The
+# Linux OpenFX build and its load test on Rocky 8 live in release.yml, which a
+# workflow_dispatch runs without publishing anything.
 on:
   push:
     branches: [main]
@@ -41,6 +43,25 @@ jobs:
       - name: Parameters
         # No GL needed, so this one cannot be a runner problem.
         run: ./build/gatest --list
+
+      - name: OpenFX bundle
+        # What tools/verify.sh checks locally, minus the render (ofxprobe lives
+        # in another repo): the plist names the binary that is on disk, the
+        # binary exports OfxGetPlugin, and the bundle ad-hoc signs -- the
+        # command the release job runs, which is where a wrong
+        # CFBundleExecutable would otherwise first fail.
+        shell: bash
+        run: |
+          bundle=build/Gate.ofx.bundle
+          exe=$( /usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$bundle/Contents/Info.plist" )
+          test -f "$bundle/Contents/MacOS/$exe" || { echo "CFBundleExecutable '$exe' is not in the bundle"; exit 1; }
+          __symbols=$( nm -gU "$bundle/Contents/MacOS/$exe" )
+          case "$__symbols" in
+            *_OfxGetPlugin*) echo "exports OfxGetPlugin" ;;
+            *) echo "expected _OfxGetPlugin, got: $__symbols"; exit 1 ;;
+          esac
+          cp -R "$bundle" "$RUNNER_TEMP/"
+          codesign --force --sign - --timestamp=none "$RUNNER_TEMP/Gate.ofx.bundle"
 
       - name: Physics
         # The runner has no accelerated GL; the harness falls back to a
@@ -93,8 +114,17 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: OpenFX plugin
+        # Win64 is where the OpenFX target's output directory has to be pinned
+        # per configuration, and where its import library races the FFGL
+        # target's (LNK1104) if it is not given its own.
+        shell: bash
+        run: test -f build/Gate.ofx.bundle/Contents/Win64/Gate.ofx
+
       - uses: actions/upload-artifact@v7
         with:
           name: gate-windows-x86_64
-          path: build/Release/*.dll
+          path: |
+            build/Release/*.dll
+            build/Gate.ofx.bundle/Contents/Win64/Gate.ofx
           if-no-files-found: error
