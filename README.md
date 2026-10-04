@@ -174,9 +174,8 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
 - **FPS does not animate.** The film position is FPS × time; a keyframed FPS would jump the
   strip rather than slow it.
 - **Fusion gives no frame rate on the clips.** Resolve's Fusion page reports none on any
-  clip (and a frame range of [0, 0]), so the projector takes the effect's own rate instead —
-  24 on the 24 fps timeline it was tested on; whether that follows a 25 or 30 fps timeline has
-  not been checked — and assumes a 24 fps timeline only if a host reports no rate at all. The
+  clip, so the projector takes the effect's own rate instead — the timeline's rate (checked at
+  24 and 25 fps) — and assumes a 24 fps timeline only if a host reports no rate at all. The
   Edit page reports the rate on the clips as well.
 - **The held pictures are fetched, not remembered.** The FFGL build keeps the two pictures it
   captured at the last two pull-downs; this build fetches the same two frames of the clip

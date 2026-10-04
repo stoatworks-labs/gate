@@ -384,9 +384,9 @@ the lead in DaVinci Resolve Studio 21.1 (MediaIn → Gate → MediaOut, a render
 the job failed with "could not be processed", and the Support library, built with DEBUG,
 logged `PropertyUnknownToHost: OfxImageEffectPropFrameRate` escaping render as
 `kOfxStatErrMissingHostFeature`. The Fusion page gives no frame rate on any clip (the
-effect DOES report one — 24 on the 24 fps timeline tested, read back from the same debug
-log by the colourunder session; whether it follows a 25 or 30 fps timeline is unchecked),
-reports the frame range as [0, 0], and leaves out the unmapped rate and range and
+effect DOES report one, and it is the timeline's: 24 on a 24 fps project and 25 on a 25 fps
+one, checked 2026-10-04 with a raw-API probe plugin), reports the begin/end-sequence frame
+range as [0, 0] (the clips' own ranges are real), and leaves out the unmapped rate and range and
 the render-status properties. `frameRate()` now reads the output clip, the source clip and
 the effect, each in its own `try`, takes the first positive finite value, and otherwise
 runs against `kFallbackFrameRate`, 24 (Resolve's default timeline rate). `getFramesNeeded`
