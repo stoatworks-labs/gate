@@ -116,8 +116,8 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
   the held pictures fetched at the output frames the FFGL bookkeeping would have captured
   them on (`holdAt`). Pure in t; FPS does not animate; Cue Dots is a toggle whose last
   off→on switch fires (searched back at most 172 projector frames, skipped with no keys).
-- **Fusion reports no frame rate** (Resolve 21.1's Fusion page: none on the effect or any
-  clip, frame range [0, 0]). `frameRate()` reads the output clip, the source, then the
+- **Fusion reports no frame rate on the clips** (Resolve 21.1's Fusion page: none on any
+  clip, but the effect reports one — 24 on the 24 fps timeline tested; frame range [0, 0]). `frameRate()` reads the output clip, the source, then the
   effect, each in its own try/catch, and falls back to 24; `getFramesNeeded`,
   `getClipPreferences` and the premultiplication reads never throw; nothing reads the frame
   range. Before this the missing property escaped render and failed the composition.

@@ -379,12 +379,14 @@ the oldest), and is skipped when the toggle has no keyframes (`getNumKeys() == 0
 never switches). `model::IsCue` reads a negative start as "never", so a cue on a negative
 projector frame (a host with negative frame numbers) does not show.
 
-**Fusion reports no frame rate; there, the projector assumes a 24 fps timeline.** Found by
+**Fusion reports no frame rate on the clips; the effect's rate is used.** Found by
 the lead in DaVinci Resolve Studio 21.1 (MediaIn → Gate → MediaOut, a render job to PNG):
 the job failed with "could not be processed", and the Support library, built with DEBUG,
 logged `PropertyUnknownToHost: OfxImageEffectPropFrameRate` escaping render as
-`kOfxStatErrMissingHostFeature`. The Fusion page gives no frame rate on the effect or on
-any clip, reports the frame range as [0, 0], and leaves out the unmapped rate and range and
+`kOfxStatErrMissingHostFeature`. The Fusion page gives no frame rate on any clip (the
+effect DOES report one — 24 on the 24 fps timeline tested, read back from the same debug
+log by the colourunder session; whether it follows a 25 or 30 fps timeline is unchecked),
+reports the frame range as [0, 0], and leaves out the unmapped rate and range and
 the render-status properties. `frameRate()` now reads the output clip, the source clip and
 the effect, each in its own `try`, takes the first positive finite value, and otherwise
 runs against `kFallbackFrameRate`, 24 (Resolve's default timeline rate). `getFramesNeeded`
@@ -634,7 +636,7 @@ at 320x180 and 1280x720 and on the software renderer.
 - **The clock-unit voting** is readout's, which has met Arena; this plugin has not.
 - **Not verified at 4K**, only benchmarked there.
 - **The OpenFX build has met one real host**: Resolve 21.1's Fusion page, which reports no
-  frame rate and failed the first build; the fixed build renders there within 1/255 of the
+  frame rate on the clips and failed the first build; the fixed build renders there within 1/255 of the
   test host (2026-10-04, "The OpenFX build" above). Resolve's Edit and Color pages, Vegas,
   Nuke and Natron are untried. Otherwise only the stock ofxprobe, a scratch-space test host and, on Linux, a
   `dlopen` on Rocky 8 in CI. The Windows build is only known to compile. Its colour handling assumes

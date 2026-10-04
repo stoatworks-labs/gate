@@ -173,11 +173,11 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
   timeline, or FPS 16 or 18, brings the machine's beat back.
 - **FPS does not animate.** The film position is FPS × time; a keyframed FPS would jump the
   strip rather than slow it.
-- **Fusion reports no frame rate; there, the projector assumes a 24 fps timeline.** Resolve's
-  Fusion page gives no frame rate on the effect or on any clip (and a frame range of [0, 0]),
-  so in a Fusion composition FPS 24 is one projector frame per Fusion frame and FPS 16, 18 and
-  25 beat against 24, whatever rate the composition really runs at. The Edit and Color pages
-  report the timeline's rate and are unaffected.
+- **Fusion gives no frame rate on the clips.** Resolve's Fusion page reports none on any
+  clip (and a frame range of [0, 0]), so the projector takes the effect's own rate instead —
+  24 on the 24 fps timeline it was tested on; whether that follows a 25 or 30 fps timeline has
+  not been checked — and assumes a 24 fps timeline only if a host reports no rate at all. The
+  Edit page reports the rate on the clips as well.
 - **The held pictures are fetched, not remembered.** The FFGL build keeps the two pictures it
   captured at the last two pull-downs; this build fetches the same two frames of the clip
   through temporal clip access: never more than 2 / FPS seconds back (one output frame more
@@ -282,9 +282,9 @@ Measured against the FFGL build on this Mac, in test hosts rather than an OpenFX
   rendered after all the ones before it, or in reverse order; with every fetch outside what it
   declares refused, nothing changes.
 - **1920×1080 costs about 19 ms a frame** on the test host's 8 threads (M4 Max, arm64).
-- **Fusion** (4 October): under the test host's Fusion mode — no frame rate anywhere, clip
-  frame range [0, 0] — the previous build fails exactly as it did in Resolve, and this one
-  renders, frame for frame what a 24 fps host gets, at every FPS.
+- **Fusion** (4 October): under the test host's Fusion mode — stricter than Fusion itself:
+  no frame rate anywhere, clip frame range [0, 0] — the previous build fails exactly as it did
+  in Resolve, and this one renders, frame for frame what a 24 fps host gets, at every FPS.
 - The Linux build loads on Rocky 8 in CI (`dlopen` and the two OFX entry points); the
   Windows build is only known to compile.
 
@@ -304,8 +304,8 @@ page was tried.
   display-shutter control for the double images, no factory presets.
 - **The OpenFX build has met one real host: DaVinci Resolve Studio 21.1 on macOS, as a
   Fusion tool.** There the first build stopped the render, because Fusion reports no frame
-  rate; the fix (a guarded read and a 24 fps fallback) renders there and matches the test
-  host (above). It has never been tried on Resolve's Edit or Color page, in Vegas, Nuke or
+  rate on the clips; the fix (guarded reads that fall back to the effect's rate, then 24 fps)
+  renders there and matches the test host (above). It has never been tried on Resolve's Edit or Color page, in Vegas, Nuke or
   Natron. On Linux only a `dlopen` on Rocky 8 in CI, and on Windows only the compiler: neither
   has rendered in a host.
 

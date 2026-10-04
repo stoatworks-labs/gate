@@ -342,10 +342,10 @@ the output pass runs on the CPU and matches the GPU's to one level in 255. What 
   remain. A 25, 30, 50 or 60 fps timeline, or FPS 16 or 18, brings the beat back (the Flicker
   table above is for a 60 fps output, so a 60 fps timeline).
 - **FPS cannot be keyframed.** The strip would jump rather than slow down.
-- **Fusion reports no frame rate; there, the projector assumes a 24 fps timeline.** In
-  Resolve's Fusion page, FPS 24 shows one projector frame per Fusion frame and the other rates
-  beat against 24, whatever the composition's own rate. On the Edit and Color pages it uses
-  the timeline's real rate.
+- **In Fusion the projector reads the effect's frame rate.** Resolve's Fusion page reports
+  no frame rate on the clips, so Gate uses the rate it reports for the effect — 24 on the
+  24 fps timeline it was tested on — and assumes a 24 fps timeline only if a host reports none
+  at all. On the Edit page it uses the timeline's rate.
 - **Cue Dots is a toggle you keyframe.** Set a keyframe with it off, then one with it on at the
   frame the marks should start: they appear on the projector frame in the gate there, for four
   frames, and again 168 projector frames later. The latest switch on wins; switching off does

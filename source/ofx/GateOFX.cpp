@@ -55,10 +55,11 @@
 /// most the 172 projector frames a cue can still be on screen for, and not at
 /// all when the toggle has no keyframes (a constant value never switches).
 ///
-/// **Fusion reports no frame rate.** Resolve's Fusion page gives none on the
-/// effect or on any clip, and its frame range reads [0, 0]. `frameRate()`
-/// guards every read and falls back to 24 fps, so there the projector assumes
-/// a 24 fps timeline; nothing reads the frame range.
+/// **Fusion reports no frame rate on the clips.** Resolve's Fusion page gives
+/// none on any clip (the effect does report one) and its frame range reads
+/// [0, 0]. `frameRate()` guards every read, so there the effect's rate is
+/// used, and 24 fps only if a host reports none at all; nothing reads the
+/// frame range.
 ///
 /// Consequences an editor will see, all of them the machine's: on a 24 fps
 /// timeline at FPS 24 every output frame integrates exactly one projector
@@ -113,15 +114,16 @@ constexpr const char* kPluginDescription =
 	"projector frames back. FPS does not animate. Cue Dots is a toggle: "
 	"keyframe it from off to on and the marks start on the frame in the gate "
 	"then, and return 168 projector frames later.\n\n"
-	"Fusion reports no frame rate; there, the projector assumes a 24 fps "
-	"timeline.\n\n"
+	"Where a host reports no frame rate on the clips, as Resolve's Fusion page "
+	"does, the projector takes the effect's rate, and assumes 24 fps only if "
+	"there is none at all.\n\n"
 	"The flicker is a whole-frame pulse; the user guide has a photosensitivity "
 	"note.\n\n"
 	"https://stoatworks-labs.com";
 
 /// The frame rate the projector runs against when the host reports none:
-/// Resolve's Fusion page reports none (see frameRate()), and 24 is Resolve's
-/// default timeline rate.
+/// Resolve's Fusion page reports none on the clips but one on the effect (see
+/// frameRate()); 24, Resolve's default timeline rate, is the last resort.
 constexpr double kFallbackFrameRate = 24.0;
 
 constexpr const char* kParamFps       = "fps";
@@ -673,8 +675,8 @@ private:
 	/// The timeline's frame rate, which sets the film position and the held
 	/// pictures' window.
 	///
-	/// Resolve's Fusion page reports NO frame rate -- not on the effect, not on
-	/// any clip -- and the Support library turns the missing property into an
+	/// Resolve's Fusion page reports no frame rate on any clip (the effect does
+	/// report one) and the Support library turns the missing property into an
 	/// exception (PropertyUnknownToHost), which escaping render fails the whole
 	/// composition. So every read is guarded on its own, the output clip, then
 	/// the source, then the effect, the first positive finite value wins, and
