@@ -15,9 +15,10 @@
 > with eight negative controls that prove each check can fail. It has **never been
 > loaded into Resolume on macOS**; there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
 > which is a real FFGL host and is not Resolume. On Windows it passes the fleet's Arena gate
-> in Resolume Arena 7.27.1 on software rendering. The OpenFX build has been tried once in
-> DaVinci Resolve 21.1, where its first build failed in the Fusion page; the fix is checked
-> only in a test host that mimics Fusion. See [Status](#status).
+> in Resolume Arena 7.27.1 on software rendering. The OpenFX build renders in DaVinci Resolve
+> Studio 21.1 on macOS as a Fusion tool, within one level in 255 of the test host (its first
+> build failed there; this one is fixed); it has not been tried in Vegas, Nuke or Natron.
+> See [Status](#status).
 
 A film projector's gate, shutter and print, as an FFGL effect for
 [Resolume](https://resolume.com) Arena and Avenue, and as an
@@ -141,8 +142,10 @@ alpha.
 
 The same projector also builds as an OpenFX plugin, so it runs in DaVinci Resolve (Edit and
 Color pages, and Fusion), Vegas Pro, Nuke and Natron. It appears as **Gate** under
-**Stoatworks**. Grab the `gate-ofx-*` zip for your platform from the release and copy
-`Gate.ofx.bundle` into the standard OpenFX folder, then restart the host:
+**Stoatworks**. It ships from v0.2.0, as its own zip beside the Resolume downloads:
+`gate-ofx-macos-universal.zip`, `gate-ofx-windows-x86_64.zip` or `gate-ofx-linux-x86_64.zip`.
+Copy `Gate.ofx.bundle` from the one for your platform into the standard OpenFX folder, then
+restart the host:
 
 ```
 macOS    /Library/OFX/Plugins/
@@ -195,7 +198,7 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
 
 ## Status
 
-**v0.1.0, released 25 September 2026, and honestly early.** There is a
+**v0.2.0, released 4 October 2026, which adds the OpenFX build, and honestly early.** There is a
 [user guide](https://stoatworks-labs.com/software/gate/guide/)
 ([PDF](docs/USER-GUIDE.pdf)) and a [project page](https://stoatworks-labs.com/software/gate/).
 
@@ -259,7 +262,8 @@ light for a scratch or a speck to take away.
 
 ### The OpenFX build, offline (3 October 2026)
 
-Measured against the FFGL build on this Mac, never in an OpenFX application:
+Measured against the FFGL build on this Mac, in test hosts rather than an OpenFX application
+(for DaVinci Resolve, see the next section):
 
 - **Frame 0**, in `tools/verify.sh` (`tools/ofx_agree.py`: the stock `ofxprobe`, against
   `gatest --pipe` on the same input): within one level in 255 at the defaults and three
@@ -284,17 +288,26 @@ Measured against the FFGL build on this Mac, never in an OpenFX application:
 - The Linux build loads on Rocky 8 in CI (`dlopen` and the two OFX entry points); the
   Windows build is only known to compile.
 
+### The OpenFX build in DaVinci Resolve, on macOS (4 October 2026)
+
+In DaVinci Resolve Studio 21.1 the fixed build renders as a Fusion tool (MediaIn → Gate →
+MediaOut, a render job to PNG): six frames of a moving 1920×1080 colour-bar sequence with
+Weave, Scratches and Dust at 0.8 are within one level in 255 of the test host rendering the
+same frames at 24 fps (Fusion's fallback rate), on 2 to 7 pixels a frame. Only the Fusion
+page was tried.
+
 ### Not done
 
 - **Never loaded into Resolume on macOS.**
 - Seen only on Resolume's bundled demo clips, never on camera footage or film scans.
 - **No Stock control** (the spec imagined one; this release has Age only), no seed, no
   display-shutter control for the double images, no factory presets.
-- **The OpenFX build has met one real host once, and failed there.** In DaVinci Resolve
-  Studio 21.1's Fusion page the first build stopped the render: Fusion reports no frame rate.
-  The fix (a guarded read and a 24 fps fallback) is verified only in the test host's Fusion
-  mode, not yet in Resolve; it has never been tried on Resolve's Edit page, in Vegas, Nuke or
-  Natron. On Linux only a `dlopen` on Rocky 8 in CI, and on Windows only the compiler.
+- **The OpenFX build has met one real host: DaVinci Resolve Studio 21.1 on macOS, as a
+  Fusion tool.** There the first build stopped the render, because Fusion reports no frame
+  rate; the fix (a guarded read and a 24 fps fallback) renders there and matches the test
+  host (above). It has never been tried on Resolve's Edit or Color page, in Vegas, Nuke or
+  Natron. On Linux only a `dlopen` on Rocky 8 in CI, and on Windows only the compiler: neither
+  has rendered in a host.
 
 ## Browser demo
 

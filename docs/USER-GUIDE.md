@@ -15,7 +15,7 @@ scratches that stay put and the magenta of an old print are what that machine do
 than captured from Resolume, with Hair up: a 24 fps xenon projector, a lightly worn print whose
 dyes have just started to go.*
 
-> **Before you rely on this:** released at **v0.1.0**, and honestly early. The projector is
+> **Before you rely on this:** released at **v0.2.0**, which adds the OpenFX build, and honestly early. The projector is
 > measured rather than asserted, by a harness that drives the real plugin class and reads every
 > property back out of the picture, at two rasters and on a software renderer: a flat grey's
 > brightness at 60 Hz has, bin for bin to 2e-8, the spectrum the shutter's own Fourier series
@@ -29,10 +29,11 @@ dyes have just started to go.*
 > chosen numbers (see Known limits). It has **never been loaded into Resolume on macOS**; there
 > the one host it has run in is the fleet's own test host, `oxbow`, for 120 frames.
 > On Windows it has: a build of this source loads, registers and renders in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), with all 21 host controls matching what the plugin declares, in the fleet's Arena gate (9 of 9 checks). The gate's picture is a still, but the projection never stands still (the weave, the dust and the flicker change every frame, a noise floor of 7.3 levels), so 9 of the 15 valued controls read as moving the picture and six read inconclusive (FPS, Shutter Angle, Scratches, Dust, Hair, Splices); none read dead. Software rendering says nothing about a GPU or about speed.
-> The OpenFX build has been tried once in DaVinci Resolve, where its first build failed in
-> the Fusion page; the fix has been checked only in a test host that behaves like Fusion. It
-> has not been tried in Vegas, Nuke or Natron. In the fleet's test hosts it matches the FFGL
-> build to one level in 255.
+> The OpenFX build renders in DaVinci Resolve Studio 21.1 on macOS as a Fusion tool, within
+> one level in 255 of the fleet's test host (its first build failed there; this one is
+> fixed). It has not been tried on Resolve's Edit or Color page, in Vegas, Nuke or Natron, and
+> the Windows and Linux builds have never rendered in a host. In the fleet's test hosts it
+> matches the FFGL build to one level in 255.
 > Try it on a spare layer before you put it in a show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
@@ -59,7 +60,8 @@ Windows  %USERPROFILE%\Documents\Resolume Arena\Extra Effects\
 Avenue uses the same layout under its own folder name. The effect then appears in the effects
 browser as **SW Gate**.
 
-The OpenFX build is a separate download, `gate-ofx-*.zip`; see [OpenFX](#openfx-resolve-vegas-nuke-natron).
+The OpenFX build is a separate download from v0.2.0: `gate-ofx-macos-universal.zip`,
+`gate-ofx-windows-x86_64.zip` or `gate-ofx-linux-x86_64.zip`; see [OpenFX](#openfx-resolve-vegas-nuke-natron).
 
 The macOS download is a universal build (Apple silicon and Intel), as a `.dmg` or a `.zip`.
 It is Developer ID-signed and notarised by the release pipeline after publication, so the bundle simply loads; if macOS refuses a download, it predates the signing — download it again. The Windows download is an x64 installer or a `.zip`. It is not code-signed,
@@ -194,7 +196,7 @@ are chosen to show the documented order, not fitted to any stock. At 0.2 every b
 maroon, which is why the default is 0.1.
 
 **There is no Stock control.** The spec imagined one (Eastmancolor, which fades, against
-Technicolor dye transfer, which does not). v0.1.0 has Age only, and every print fades the same way.
+Technicolor dye transfer, which does not). There is Age only so far, and every print fades the same way.
 
 ---
 
@@ -240,7 +242,7 @@ A display frame whose exposure spans a pull-down gets light from both projector 
 proportions the shutter let through on each side, and each at its own weave. On a still picture
 that is invisible; on fast motion it reads as a double image on one display frame in two or three
 at 24 fps. It is what the machine does (it is what a camera with a 360° shutter films when it
-films a projector), and it is **not a control in v0.1.0**. A wider Shutter Angle lights more of
+films a projector), and it is **not a control yet**. A wider Shutter Angle lights more of
 each side of a pull-down, so the default shows it more often than the classic 180° shutter did; a
 narrower one leaves more of those frames dark on one side and so clean.
 
@@ -286,7 +288,7 @@ hundred times the GPU's cost.
 nearly gone.
 
 **Motion looks doubled every few frames.** Double images at a pull-down (see above). That is the
-machine; there is no control for it in v0.1.0.
+machine; there is no control for it yet.
 
 **Motion judders.** The hold: the picture changes FPS times a second, and a 30 fps clip at 24 fps
 drops a frame in five. Choose 25 fps if the clip is 25 or 50 fps.
@@ -318,8 +320,9 @@ host's clock and the unit the plugin decided it is in.
 
 ## OpenFX (Resolve, Vegas, Nuke, Natron)
 
-The same projector builds as an OpenFX plugin. Copy `Gate.ofx.bundle` from the `gate-ofx-*`
-zip for your platform into the OpenFX folder and restart the host:
+The same projector builds as an OpenFX plugin, released from v0.2.0. Copy `Gate.ofx.bundle`
+from the zip for your platform (`gate-ofx-macos-universal.zip`, `gate-ofx-windows-x86_64.zip`
+or `gate-ofx-linux-x86_64.zip`) into the OpenFX folder and restart the host:
 
 ```
 macOS    /Library/OFX/Plugins/
@@ -382,8 +385,9 @@ The CPU render costs far more than the GPU's: see Performance.
 - **Only ever run on an Apple M4 Max**, although the macOS build contains an Intel slice. On
   Windows, see the note at the top of this guide.
 - **No presets.**
-- **The OpenFX build has barely met a real host.** Its first build failed in DaVinci
-  Resolve's Fusion page; the fix is checked only in a test host that behaves like Fusion.
+- **The OpenFX build has met one real host.** It renders in DaVinci Resolve Studio 21.1 on
+  macOS as a Fusion tool, within one level in 255 of the fleet's test host (its first build
+  failed there); Resolve's Edit and Color pages, Vegas, Nuke and Natron are untried.
   Otherwise it has run in the fleet's test hosts on macOS; the Linux build is only shown to
   load on Rocky 8, and the Windows build only to compile.
 - **There is a browser demo** at [gate-demo.stoatworks-labs.com](https://gate-demo.stoatworks-labs.com/). It is a port to a web page, not the plugin: the shaders run in WebGL2, and the projector and the print (the shutter's weights, the weave, the dirt, the dyes, the clock) are rewritten in JavaScript. Its flicker beats against your browser's display rate. The page lists what it does not reproduce.

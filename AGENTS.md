@@ -11,7 +11,8 @@ anybody this works.
 A film projector's gate, shutter and print, as an FFGL 2.1 effect (`GA01`, shown as
 `SW Gate`) for Resolume Arena and Avenue. C++17 + GLSL 4.10, CMake, universal macOS
 `.bundle` and (in CI) a Windows `.dll`. MIT, at
-`github.com/stoatworks-labs/gate`. Released v0.1.0 on 2026-09-25.
+`github.com/stoatworks-labs/gate`. Released v0.1.0 on 2026-09-25; v0.2.0, which adds the
+OpenFX build, on 2026-10-04.
 
 Since 2026-10-03 it is also an **OpenFX** effect (`com.stoatworks.gate`, shown as **Gate**
 under Stoatworks) for Resolve, Vegas, Nuke and Natron: a CPU render over the host's buffer,
@@ -480,10 +481,14 @@ ms a frame, median 19.0 (every mark at 1: median 19.9; a 24 fps clip: 19.3), on 
 host's multi-thread suite, which hands out 8 threads (min of the cores, 8). arm64 Release
 build. About two hundred times the GPU's 0.09 ms; an offline host is for that.
 
-**Not verified:** a real OpenFX host rendering it. Resolve 21.1's Fusion page failed the
-first build (above); the fix is checked only under the test host's `--quirks fusion`, and the
-lead re-runs Resolve. Resolve's Edit page, Vegas, Nuke and Natron are untried; the Linux build
-is only `dlopen`ed on Rocky 8 in CI and Windows only compiled. The
+**In a real host** (the lead, 2026-10-04): DaVinci Resolve Studio 21.1 on macOS, the fixed
+build as a Fusion tool, MediaIn → Gate → MediaOut, a render job to PNG. Six frames
+of a moving 1920×1080 colour-bar sequence at Weave, Scratches and Dust 0.8 are within 1/255
+of the test host rendering the same frames at 24 fps (Fusion's fallback), on 2–7 pixels a
+frame.
+
+**Not verified:** Resolve's Edit and Color pages, Vegas, Nuke and Natron are untried; the
+Linux build is only `dlopen`ed on Rocky 8 in CI and Windows only compiled. The
 Transition and Generator contexts do not apply (one input, an effect).
 
 ---
@@ -628,9 +633,10 @@ at 320x180 and 1280x720 and on the software renderer.
   footage, never on film scans.
 - **The clock-unit voting** is readout's, which has met Arena; this plugin has not.
 - **Not verified at 4K**, only benchmarked there.
-- **The OpenFX build has met a real host once and failed**: Resolve 21.1's Fusion page,
-  which reports no frame rate (fixed; the fix is checked only in the test host's Fusion
-  mode). Otherwise only the stock ofxprobe, a scratch-space test host and, on Linux, a
+- **The OpenFX build has met one real host**: Resolve 21.1's Fusion page, which reports no
+  frame rate and failed the first build; the fixed build renders there within 1/255 of the
+  test host (2026-10-04, "The OpenFX build" above). Resolve's Edit and Color pages, Vegas,
+  Nuke and Natron are untried. Otherwise only the stock ofxprobe, a scratch-space test host and, on Linux, a
   `dlopen` on Rocky 8 in CI. The Windows build is only known to compile. Its colour handling assumes
   display-referred input, as the FFGL build does; nothing has checked how a host's colour
   management feeds it.

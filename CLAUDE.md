@@ -141,10 +141,11 @@ Read `AGENTS.md` before changing the shutter, the hold, the print or a check's t
 - **Never loaded into Resolume on macOS.** Everything numeric is measured offline against
   the real plugin class in a headless CGL context, plus an `oxbow` load. On Windows it passes
   the fleet's Arena gate (Arena 7.27.1, llvmpipe), 9/9 (see AGENTS.md).
-- **The OpenFX build has met one real host once**: Resolve 21.1's Fusion page, where the
-  first build failed (no frame rate). The fix is checked only under the test host's
-  `--quirks fusion`; Resolve's Edit page, Vegas, Nuke and Natron are untried. Otherwise
-  ofxprobe and the test host on macOS, a Rocky 8 `dlopen` in CI, the Windows compiler.
+- **The OpenFX build has met one real host**: Resolve 21.1's Fusion page, where the
+  first build failed (no frame rate) and the fixed one renders within 1/255 of the test
+  host at 24 fps (the lead, 2026-10-04, six 1080p frames). Resolve's Edit and Color pages,
+  Vegas, Nuke and Natron are untried. Otherwise ofxprobe and the test host on macOS, a
+  Rocky 8 `dlopen` in CI, the Windows compiler.
 - No factory presets, no Stock or seed control.
 - The default shutter is 3 blades at 270° (photosensitivity; AGENTS.md "The three questions").
 - `StoatworksAbout.h`, `ATTRIBUTIONS.md`, `.github/ISSUE_TEMPLATE/` and `.github/FUNDING.yml`
