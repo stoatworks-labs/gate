@@ -15,7 +15,7 @@ scratches that stay put and the magenta of an old print are what that machine do
 than captured from Resolume, with Hair up: a 24 fps xenon projector, a lightly worn print whose
 dyes have just started to go.*
 
-> **Before you rely on this:** released at **v0.2.0**, which adds the OpenFX build, and honestly early. The projector is
+> **Before you rely on this:** released at **v0.2.1** (v0.2.0 added the OpenFX build), and honestly early. The projector is
 > measured rather than asserted, by a harness that drives the real plugin class and reads every
 > property back out of the picture, at two rasters and on a software renderer: a flat grey's
 > brightness at 60 Hz has, bin for bin to 2e-8, the spectrum the shutter's own Fourier series

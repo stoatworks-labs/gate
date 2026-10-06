@@ -208,7 +208,8 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
 
 ## Status
 
-**v0.2.0, released 4 October 2026, which adds the OpenFX build, and honestly early.** There is a
+**v0.2.1, released 6 October 2026, and honestly early.** v0.2.0 added the OpenFX build; v0.2.1
+corrects what its description says about Resolve's Fusion page. There is a
 [user guide](https://stoatworks-labs.com/software/gate/guide/)
 ([PDF](docs/USER-GUIDE.pdf)) and a [project page](https://stoatworks-labs.com/software/gate/).
 
