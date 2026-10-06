@@ -34,14 +34,14 @@ Resolume. Resolume's bundled demo clip Beat 001 at the defaults, with Hair up.</
 
 ## Download
 
-**[v0.2.0](https://github.com/stoatworks-labs/gate/releases/tag/v0.2.0)** — prebuilt for macOS, Windows and Linux. Pick your platform:
+**[v0.2.1](https://github.com/stoatworks-labs/gate/releases/tag/v0.2.1)** — prebuilt for macOS, Windows and Linux. Pick your platform:
 
 <details>
 <summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| Universal (Apple Silicon + Intel) · .dmg disk image | [`gate-0.2.0-macos-universal.dmg`](https://github.com/stoatworks-labs/gate/releases/download/v0.2.0/gate-0.2.0-macos-universal.dmg) | 234 KB |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`gate-0.2.1-macos-universal.dmg`](https://github.com/stoatworks-labs/gate/releases/download/v0.2.1/gate-0.2.1-macos-universal.dmg) | 234 KB |
 | Universal (Apple Silicon + Intel) · .zip archive | [`gate-macos-universal.zip`](https://github.com/stoatworks-labs/gate/releases/latest/download/gate-macos-universal.zip) | 191 KB |
 | Universal (Apple Silicon + Intel) · .zip archive (OpenFX — Resolve, Vegas, Nuke) | [`gate-ofx-macos-universal.zip`](https://github.com/stoatworks-labs/gate/releases/latest/download/gate-ofx-macos-universal.zip) | 262 KB |
 
@@ -52,7 +52,7 @@ Resolume. Resolume's bundled demo clip Beat 001 at the defaults, with Hair up.</
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .exe installer | [`gate-0.2.0-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/gate/releases/download/v0.2.0/gate-0.2.0-windows-x86_64-setup.exe) | 230 KB |
+| x64 · .exe installer | [`gate-0.2.1-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/gate/releases/download/v0.2.1/gate-0.2.1-windows-x86_64-setup.exe) | 230 KB |
 | x64 · .zip archive | [`gate-windows-x86_64.zip`](https://github.com/stoatworks-labs/gate/releases/latest/download/gate-windows-x86_64.zip) | 120 KB |
 | x64 · .zip archive (OpenFX — Resolve, Vegas, Nuke) | [`gate-ofx-windows-x86_64.zip`](https://github.com/stoatworks-labs/gate/releases/latest/download/gate-ofx-windows-x86_64.zip) | 80 KB |
 
