@@ -273,8 +273,8 @@ shaders see only weights and offsets. A frame longer than a quarter of a second 
 ## Performance
 
 Measured by the offline harness on an M4 Max at the defaults, best of three, `glFinish` both
-sides, on a GPU shared with other work: 0.087 ms a frame at 1280 × 720, 0.084 at 1920 × 1080 and
-0.27 at 3840 × 2160 (1.6% of a 60 fps frame), holding 14, 32 and 127 MB (two half-float pictures
+sides, on a GPU shared with other work: 0.085 ms a frame at 1280 × 720, 0.094 at 1920 × 1080 and
+0.265 at 3840 × 2160 (1.6% of a 60 fps frame), holding 14, 32 and 127 MB (two half-float pictures
 at the input's size). I haven't timed it inside Resolume, or on Windows.
 
 The OpenFX build renders on the CPU: about 19 ms a frame at 1920 × 1080 on eight threads of
