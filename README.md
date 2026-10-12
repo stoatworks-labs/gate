@@ -1,33 +1,26 @@
 # gate
 
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
-> (Anthropic), directed and reviewed by a human author. The projector is not asserted
-> but measured: an offline harness drives the real plugin class in a headless GL context
-> on a synthetic clock and reads every property back out of the picture it renders — a
-> flat grey's brightness at 60 Hz has, bin for bin to 2e-8, the spectrum the shutter's
-> own Fourier series predicts, its strongest line at the 12 Hz beat of 48 Hz against 60;
-> the picture changes only at pull-downs, 24 times a second at 24 fps, and every
-> pull-down happens in exactly the dark; a scratch holds its x to 2e-5 px while the
-> picture weaves and slides under it, dark on the base side and light on the emulsion;
-> a thousand frames' weave has the stated deviation and lag-1 correlation, more and less
-> of each on a shrunk print; a grey through Age keeps each dye's stated density to 1e-7
-> and goes magenta; and a resize leaves the print and the previous frame untouched —
-> with eight negative controls that prove each check can fail. It has **never been
-> loaded into Resolume on macOS**; there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
-> which is a real FFGL host and is not Resolume. On Windows it passes the fleet's Arena gate
+> (Anthropic), directed and reviewed by a human author. It's **never been loaded into
+> Resolume on macOS**; there it's loaded by [oxbow](https://github.com/stoatworks-labs/oxbow),
+> which is a real FFGL host but isn't Resolume. On Windows it passes the fleet's Arena gate
 > in Resolume Arena 7.27.1 on software rendering. The OpenFX build renders in DaVinci Resolve
 > Studio 21.1 on macOS as a Fusion tool, within one level in 255 of the test host (its first
-> build failed there; this one is fixed); it has not been tried in Vegas, Nuke or Natron.
-> See [Status](#status).
+> build failed there; this one's fixed), and I haven't tried it in Vegas, Nuke or Natron.
+> Everything else is measured by an offline harness that drives the real plugin class in a
+> headless GL context on a synthetic clock and reads every property back out of the picture it
+> renders, with eight negative controls to show each check can fail. The full rundown is under
+> [Status](#status).
 
 A film projector's gate, shutter and print, as an FFGL effect for
 [Resolume](https://resolume.com) Arena and Avenue, and as an
 [OpenFX](#openfx--resolve-vegas-nuke-natron) effect for DaVinci Resolve, Vegas, Nuke and
-Natron.
+Natron. The flicker, the judder, the weave and the scratches all come from a model of the
+machine and the strip of film running through it.
 
 ![Resolume's demo clip Beat 001 through the projector: a grey machine landscape gone faintly pink, a green gate scratch down the left, the corners falling off, a hair caught at the top right of the gate](docs/hero.png)
 
-<sub>One frame, rendered by `gatest --pipe`, the offline harness — not captured from
+<sub>One frame, rendered by `gatest --pipe`, the offline harness, rather than captured from
 Resolume. Resolume's bundled demo clip Beat 001 at the defaults, with Hair up.</sub>
 
 <!-- downloads:start -->
@@ -81,10 +74,10 @@ macOS builds are signed and notarised and open normally. The Windows builds are 
 
 ## The one idea
 
-Model the machine, not the look. A projector pulls the film down a frame at a time with a
-claw, holds it in the gate against the claw's clearance, and lets the lamp through only
-while a shutter blade is out of the way — two or three times a frame, so the flicker is
-above what the eye can see. The print going through it is a physical strip with grit,
+Gate models the machine and lets the look take care of itself. A projector pulls the film
+down a frame at a time with a claw, holds it in the gate against the claw's clearance, and
+only lets the lamp through while a shutter blade is out of the way, two or three times a
+frame, so the flicker is above what the eye can see. The print going through it is a physical strip with grit,
 dust and splices on it, and dyes that fade.
 
 So the clip is held at the projector's rate, the light the blades pass is integrated over
@@ -93,12 +86,12 @@ mark on the picture belongs to the print or the gate.
 
 ## What falls out
 
-None of these is drawn as an effect. Each is the machine doing what it does:
+None of this is drawn on as an effect. It's all the machine doing what it does:
 
 - **Flicker at the beat.** A two-blade shutter at 24 fps interrupts the light 48 times a
   second. A 60 Hz display integrating that sees it beat at 12 Hz; three blades (72 Hz) beat
-  at 12 Hz too, but softer; 25 fps with two blades at 10 Hz. How deep is set by the
-  shutter's opening, and nothing else.
+  at 12 Hz too, but softer; 25 fps with two blades at 10 Hz. How deep it goes is set by the
+  shutter's opening and nothing else.
 - **The hold.** The picture changes only when the claw pulls down, which it does in the
   dark. A 30 fps clip at 24 fps judders the way film on television does, and a display
   frame that spans a pull-down shows both frames, in proportion to the light each got.
@@ -120,10 +113,10 @@ None of these is drawn as an effect. Each is the machine doing what it does:
 ### The honest limit
 
 The machine's geometry is published (the 35 mm frame pitch, the apertures, the cue
-timing), but its behaviour is chosen: the weave's size and correlation and how shrinkage
+timing), but its behaviour is my choice: the weave's size and correlation and how shrinkage
 changes them, the scratch and dust rates, the hair, and the three dyes' fading rates are
 numbers picked to show the right thing, not measured from a projector or a print. The
-lamps are black bodies, which a carbon arc and a xenon lamp are not. A display frame that
+lamps are black bodies, which a carbon arc and a xenon lamp aren't. A display frame that
 spans a pull-down really does show two frames, and on fast motion that reads as a double
 image every few frames. And a transparent clip prints as black film.
 
@@ -138,12 +131,12 @@ image every few frames. And a transparent clip prints as black film.
 
 The defaults are a three-blade projector at 24 fps with a 270° opening and a xenon lamp,
 running a lightly worn print: some weave, a few scratches and specks, a hair now and then,
-three splices a minute, and dyes just starting to go. Chosen on Resolume's demo clips.
+three splices a minute, and dyes just starting to go. I picked them on Resolume's demo clips.
 
 > **Photosensitivity.** The flicker is a whole-frame pulse at the beat of the projector
 > against your output: 12 Hz at 60 Hz, inside the 3–30 Hz band broadcast flash guidelines
 > restrict. The default shutter keeps it to about ±7–9% of the light; the classic 35 mm
-> shutter, 2 blades at 180°, beats by about ±25–29%, which is why it is not the default. The
+> shutter, 2 blades at 180°, beats by about ±25–29%, which is why it isn't the default. The
 > [user guide](https://stoatworks-labs.com/software/gate/guide/) has the table.
 
 The output is opaque at Mix 1: the projection paints the whole frame, whatever the clip's
@@ -152,8 +145,8 @@ alpha.
 ## OpenFX — Resolve, Vegas, Nuke, Natron
 
 The same projector also builds as an OpenFX plugin, so it runs in DaVinci Resolve (Edit and
-Color pages, and Fusion), Vegas Pro, Nuke and Natron. It appears as **Gate** under
-**Stoatworks**. It ships from v0.2.0, as its own zip beside the Resolume downloads:
+Color pages, and Fusion), Vegas Pro, Nuke and Natron. It shows up as **Gate** under
+**Stoatworks**. It's shipped since v0.2.0, as its own zip beside the Resolume downloads:
 `gate-ofx-macos-universal.zip`, `gate-ofx-windows-x86_64.zip` or `gate-ofx-linux-x86_64.zip`.
 Copy `Gate.ofx.bundle` from the one for your platform into the standard OpenFX folder, then
 restart the host:
@@ -164,10 +157,10 @@ Windows  C:\Program Files\Common Files\OFX\Plugins\
 Linux    /usr/OFX/Plugins/
 ```
 
-**What is the same.** The projector and the print are not ported, they are linked: the
+**What's the same.** The projector and the print aren't ported, they're linked: the
 shutter's light, the weave, the scratches, dust, hair, splices and cue timing, the dyes, the
 lamps and every control's law are the FFGL build's own C++ (`Model.cpp`, `Controls.cpp`,
-`Exposure.cpp`), with the same seed, so it is the same strip. The output pass is mirrored on
+`Exposure.cpp`), with the same seed, so it's the same strip. The output pass is mirrored on
 the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
 `//= mirrored`). Same controls, same ranges, same defaults, same groups.
 
@@ -180,19 +173,19 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
   frame in order from the start.
 - **The flicker and the hold beat against the timeline's rate**, not a display's. On a
   24 fps timeline at FPS 24 every output frame shows exactly one projector frame: no beat, no
-  double images, no judder — the weave, the print and the marks remain. A 25, 30, 50 or 60 fps
+  double images and no judder, though the weave, the print and the marks stay. A 25, 30, 50 or 60 fps
   timeline, or FPS 16 or 18, brings the machine's beat back.
-- **FPS does not animate.** The film position is FPS × time; a keyframed FPS would jump the
+- **FPS doesn't animate.** The film position is FPS × time; a keyframed FPS would jump the
   strip rather than slow it.
 - **Fusion gives no frame rate on the clips.** Resolve's Fusion page reports none on any
-  clip, so the projector takes the effect's own rate instead — the timeline's rate (checked at
-  24 and 25 fps) — and assumes a 24 fps timeline only if a host reports no rate at all. The
+  clip, so the projector takes the effect's own rate instead (the timeline's rate, checked at
+  24 and 25 fps) and assumes a 24 fps timeline only if a host reports no rate at all. The
   Edit page reports the rate on the clips as well.
 - **The held pictures are fetched, not remembered.** The FFGL build keeps the two pictures it
   captured at the last two pull-downs; this build fetches the same two frames of the clip
   through temporal clip access: never more than 2 / FPS seconds back (one output frame more
-  when FPS is faster than the timeline) — at most 7 frames of a 60 fps timeline at FPS 16, 2
-  of a 24 fps one. Before the clip's first frame there is nothing to fetch, and the older
+  when FPS is faster than the timeline), which is at most 7 frames of a 60 fps timeline at FPS
+  16, and 2 of a 24 fps one. Before the clip's first frame there's nothing to fetch, and the older
   picture is the newer one, as on the FFGL build's first frame. They are held in float, where
   the GPU holds half floats.
 - **Cue Dots is a keyframed toggle, not a button.** A press has no meaning on a timeline.
@@ -203,19 +196,19 @@ the CPU (`Projection.cpp`, line for line against the GLSL, each copy marked
 - **Colour is taken as display-referred**, as Resolume's is: the clip is decoded as sRGB into
   linear light for the print and encoded back. In a scene-linear host (Nuke, Natron, a Resolve
   node graph in linear) put it between colour-space conversions to an sRGB-like encoding.
-- There is no audio in either build, so nothing is dropped. The About group is a folded group
+- There's no audio in either build, so nothing is dropped. The About group is a folded group
   of link buttons, as in every Stoatworks OpenFX plugin.
 
 ## Status
 
-**v0.2.1, released 6 October 2026, and honestly early.** v0.2.0 added the OpenFX build; v0.2.1
+**v0.2.1, released 6 October 2026, and still early days.** v0.2.0 added the OpenFX build; v0.2.1
 corrects what its description says about Resolve's Fusion page. There is a
 [user guide](https://stoatworks-labs.com/software/gate/guide/)
 ([PDF](docs/USER-GUIDE.pdf)) and a [project page](https://stoatworks-labs.com/software/gate/).
 
 ### Measured offline, on macOS
 
-`tools/verify.sh` passes on this machine (M4 Max, macOS 26.4) against a fresh universal
+`tools/verify.sh` passes on this Mac (M4 Max, macOS 26.4) against a fresh universal
 Release build, running every check at 320×180 and 1280×720 and again on Apple's software
 renderer, which is what a GPU-less CI runner has. What it establishes:
 
@@ -227,7 +220,7 @@ renderer, which is what a GPU-less CI runner has. What it establishes:
   proportions; 24 (and 25) pictures captured each second. At 2400 Hz every exposure that
   contains a pull-down is exactly black.
 - **Scratch.** A scratch on whole pixels takes exactly its columns, on every frame of a
-  moving, weaving picture; one at a fractional x reads back to 1.8e-5 px and does not
+  moving, weaving picture; one at a fractional x reads back to 1.8e-5 px and doesn't
   move; the print's own keep their profiles; base dark, emulsion light, every time.
 - **Weave.** A thousand frames: standard deviation 1.906 px against 1.884 stated, lag-1
   correlation 0.742 against 0.750; at 2% shrinkage 5.779 against 5.651 and 0.372 against
@@ -258,7 +251,7 @@ one frame of a resize); the print is on the CPU and costs a 4 KB texture row.
 
 ### In Resolume Arena, on Windows
 
-On Windows it has: a build of this source loads, registers and renders in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), with all 21 host controls matching what the plugin declares, in the fleet's Arena gate (9 of 9 checks). The gate's picture is a still, but the projection never stands still (the weave, the dust and the flicker change every frame, a noise floor of 7.3 levels), so 9 of the 15 valued controls read as moving the picture and six read inconclusive (FPS, Shutter Angle, Scratches, Dust, Hair, Splices); none read dead. Software rendering says nothing about a GPU or about speed.
+On Windows, a build of this source loads, registers and renders in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), with all 21 host controls matching what the plugin declares, in the fleet's Arena gate (9 of 9 checks). The gate's picture is a still, but the projection never stands still (the weave, the dust and the flicker change every frame, a noise floor of 7.3 levels), so 9 of the 15 valued controls read as moving the picture and six read inconclusive (FPS, Shutter Angle, Scratches, Dust, Hair, Splices); none read dead. Software rendering says nothing about a GPU or about speed.
 
 ### What filming the release video found
 
@@ -268,7 +261,7 @@ are beats against the display rate). It confirmed the hold on screen (at 24 fps 
 held for two or three display frames, and the frame spanning a pull-down shows both pictures;
 at 16 fps the steps are larger) and found no defect. It never shows the classic shutter (see
 the default below); the deepest flicker filmed is 2 blades at 270°, for three seconds. The
-print's marks read only on bright clips: on the thin-lines-on-black loops there is little
+print's marks only read on bright clips: on the thin-lines-on-black loops there's not much
 light for a scratch or a speck to take away.
 
 ### The OpenFX build, offline (3 October 2026)
@@ -282,7 +275,7 @@ Measured against the FFGL build on this Mac, in test hosts rather than an OpenFX
   (4/255), so the comparison can fail.
 - **Over time** (`tools/ofx_sequence.py`, a test host with image sequences and keyframes, 60
   fps): 120 frames at FPS 16 and at 18, at the defaults and with the marks turned up, and 700
-  frames of Cue Dots switched on against FFGL presses — one level in 255, on every frame where
+  frames of Cue Dots switched on against FFGL presses: one level in 255, on every frame where
   the two clocks agree. At FPS 24 and 25 gatest's accumulated clock lands a few ulps past a
   pull-down from frame 14 (11) and captures the next picture one display frame early; those
   frames are reported apart (AGENTS.md has the trap).
@@ -293,8 +286,8 @@ Measured against the FFGL build on this Mac, in test hosts rather than an OpenFX
   rendered after all the ones before it, or in reverse order; with every fetch outside what it
   declares refused, nothing changes.
 - **1920×1080 costs about 19 ms a frame** on the test host's 8 threads (M4 Max, arm64).
-- **Fusion** (4 October): under the test host's Fusion mode — stricter than Fusion itself:
-  no frame rate anywhere, clip frame range [0, 0] — the previous build fails exactly as it did
+- **Fusion** (4 October): under the test host's Fusion mode (stricter than Fusion itself:
+  no frame rate anywhere, clip frame range [0, 0]) the previous build fails exactly as it did
   in Resolve, and this one renders, frame for frame what a 24 fps host gets, at every FPS.
 - The Linux build loads on Rocky 8 in CI (`dlopen` and the two OFX entry points); the
   Windows build is only known to compile.
@@ -304,19 +297,19 @@ Measured against the FFGL build on this Mac, in test hosts rather than an OpenFX
 In DaVinci Resolve Studio 21.1 the fixed build renders as a Fusion tool (MediaIn → Gate →
 MediaOut, a render job to PNG): six frames of a moving 1920×1080 colour-bar sequence with
 Weave, Scratches and Dust at 0.8 are within one level in 255 of the test host rendering the
-same frames at 24 fps (Fusion's fallback rate), on 2 to 7 pixels a frame. Only the Fusion
-page was tried.
+same frames at 24 fps (Fusion's fallback rate), on 2 to 7 pixels a frame. I only tried the
+Fusion page.
 
 ### Not done
 
 - **Never loaded into Resolume on macOS.**
 - Seen only on Resolume's bundled demo clips, never on camera footage or film scans.
-- **No Stock control** (the spec imagined one; this release has Age only), no seed, no
+- **No Stock control** (the spec imagined one; this release only has Age), no seed, no
   display-shutter control for the double images, no factory presets.
 - **The OpenFX build has met one real host: DaVinci Resolve Studio 21.1 on macOS, as a
   Fusion tool.** There the first build stopped the render, because Fusion reports no frame
   rate on the clips; the fix (guarded reads that fall back to the effect's rate, then 24 fps)
-  renders there and matches the test host (above). It has never been tried on Resolve's Edit or Color page, in Vegas, Nuke or
+  renders there and matches the test host (above). It's never been tried on Resolve's Edit or Color page, in Vegas, Nuke or
   Natron. On Linux only a `dlopen` on Rocky 8 in CI, and on Windows only the compiler: neither
   has rendered in a host.
 
@@ -327,18 +320,18 @@ plugin's own capture, resample and output shaders in WebGL2, spliced in from
 `source/Shaders.cpp` by `demo/tools/sync_shaders.py` and checked character for
 character, with Model.h's constants, by `demo/tools/check_shaders.py` from
 `tools/verify.sh`. So the hold, the gate, the print and the shutter's sum run on the GPU
-over the same two RGBA16F held pictures. Its CPU half — the shutter's light per
+over the same two RGBA16F held pictures. Its CPU half (the shutter's light per
 projector frame, the weave, every scratch, speck, hair, splice and cue dot, the dyes and
-the lamps, and every control's law — is a hand port to JavaScript that only a reader
-checks, and the page says so. Driven frame by frame against `gatest --pipe --fps 60` on
+the lamps, and every control's law) is a hand port to JavaScript that nothing checks
+except somebody reading it, and the page says so. Driven frame by frame against `gatest --pipe --fps 60` on
 the same input it agrees to 1/255 on every pixel. The flicker beats against the
-browser's own frame rate, so what it shows depends on your display; the page carries a
+browser's own frame rate, so what it shows depends on your display; the page has a
 photosensitivity note. Generated clips only, or your own image or video, which never
 leaves the page.
 
 ## Build
 
-Needs CMake 3.15+, a C++17 compiler and the FFGL SDK submodule.
+You'll need CMake 3.15+, a C++17 compiler and the FFGL SDK submodule.
 
 ```sh
 git clone --recurse-submodules https://github.com/stoatworks-labs/gate
@@ -352,8 +345,8 @@ it into `~/Documents/Resolume Arena/Extra Effects`; for Avenue, pass
 `--prefix "$HOME/Documents/Resolume Avenue/Extra Effects"`.
 
 The same build makes `build/Gate.ofx.bundle`, the OpenFX plugin (`-DBUILD_OFX=OFF` to skip
-it). `-DGATE_BUILD_FFGL=OFF` builds the OpenFX plugin alone, with nothing but a compiler —
-no FFGL SDK, no GL, no GLEW — which is how the Linux build is made.
+it). `-DGATE_BUILD_FFGL=OFF` builds the OpenFX plugin alone, with nothing but a compiler
+(no FFGL SDK, no GL, no GLEW), which is how the Linux build is made.
 
 ## Building and testing
 
